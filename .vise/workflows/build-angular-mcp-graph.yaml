@@ -19,92 +19,11 @@ nodes:
     LANGUAGE: all code, comments, docstrings, error messages and documentation
     are written in English. No Spanish anywhere in the repository.
   tasks:
-  - id: extract-templates
-    name: Template extractor in TypeScript
-    max_turns: 140
-    role: backend
-    complexity: high
-    ownership:
-    - packages/server/src/indexer/extractors/templates.ts
-    - packages/server/src/indexer/extractors/selectors.ts
-    - packages/server/test/indexer/templates.test.ts
-    - packages/server/test/indexer/selectors.test.ts
-    acceptance:
-    - Templates are parsed with parseTemplate from the analyzed project's compiler
-    - Interpolation, property, event, two-way and control flow bindings are classified
-    - Selectors resolve against the component scope, standalone or NgModule
-    - 'A template with a syntax error does not abort the index: parseErrors are stored'
-    prompt: |
-      Read docs/PLAN.md sections 4.3 and 5.2, and risks R4 and R14, before
-      writing anything.
-
-      Implement two files.
-
-      - templates.ts: parse the template, whether in a file or inline, with
-        parseTemplate from @angular/compiler resolved from the ANALYZED project
-        (use the existing src/indexer/resolve.ts). Walk the AST and emit binds
-        edges classified as: interpolation, property, event, two-way, modern
-        control flow @if/@for/@switch/@defer/@let, legacy structural directives
-        *ngIf/*ngFor, pipes and #ref references.
-        If parsing fails, store parseErrors on the Template node and carry on.
-        Never abort the whole index because one template is broken.
-      - selectors.ts: resolve a template tag or attribute to its Component,
-        Directive or Pipe. Scope comes from a standalone component's imports
-        array, or from the declarations of the NgModule that declares it. The
-        hybrid case, a standalone component imported from an NgModule, must
-        work. Anything you cannot resolve gets confidence 'unknown'.
-
-      Binding types come from the component class via the TypeScript type
-      checker. Do NOT use TemplateTypeChecker.
-
-      Reuse the existing model in src/graph/model.ts and the extractors already
-      in src/indexer/extractors/ as a style reference.
-
-      LANGUAGE: write ALL comments, docstrings, error messages and any
-      documentation in English. The repository is English-only.
-    timeout_s: 2700
-  - id: indexer
-    name: Index orchestrator in TypeScript
-    max_turns: 120
-    role: backend
-    complexity: high
-    dependencies:
-    - extract-templates
-    ownership:
-    - packages/server/src/indexer/index.ts
-    - packages/server/src/indexer/incremental.ts
-    - packages/server/test/indexer/index.test.ts
-    - packages/server/test/indexer/incremental.test.ts
-    acceptance:
-    - Indexes a whole project by calling every extractor
-    - Incremental reindexing only reprocesses files whose hash changed
-    - Reports nodes per type, files processed, elapsed time and parse errors
-    - A broken file does not abort the index
-    prompt: |
-      Read docs/PLAN.md sections 4.1 and 7 Phase 1 before writing anything.
-
-      Implement the orchestrator that walks the project's files, calls each
-      extractor already present in src/indexer/extractors/ and builds the
-      ProjectGraph from src/graph/.
-
-      - index.ts: full indexing of one angular.json project. Templates are
-        parsed on demand and cached.
-      - incremental.ts: compare hashes, reindex only what changed, invalidate
-        the edges that originated in the affected files.
-
-      Return a summary: nodes per type, files, elapsed time, parse errors. A
-      file that fails is recorded and the walk continues.
-
-      LANGUAGE: write ALL comments, docstrings, error messages and any
-      documentation in English. The repository is English-only.
-    timeout_s: 2400
   - id: query-tools
     name: Query and impact tools in TypeScript
     max_turns: 150
     role: backend
     complexity: high
-    dependencies:
-    - indexer
     ownership:
     - packages/server/src/tools/**
     - packages/server/test/tools/**
@@ -148,8 +67,6 @@ nodes:
     max_turns: 150
     role: backend
     complexity: high
-    dependencies:
-    - indexer
     ownership:
     - packages/server/src/rules/**
     - packages/server/test/rules/**
@@ -233,8 +150,6 @@ nodes:
     max_turns: 140
     role: test
     complexity: high
-    dependencies:
-    - indexer
     ownership:
     - fixtures/standalone-app/expected-graph.json
     - fixtures/ngmodule-app/expected-graph.json
