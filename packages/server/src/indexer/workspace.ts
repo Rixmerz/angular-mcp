@@ -24,6 +24,14 @@ export interface WorkspaceProject {
   readonly sourceRoot?: string;
   /** Absolute path to the project's tsconfig, when it could be determined. */
   readonly tsConfigPath?: string;
+  /**
+   * Every tsconfig this project declares (build, test, lint, ...), the
+   * primary one first. A standard Angular app splits its sources across
+   * `tsconfig.app.json` ("files": ["src/main.ts"]) and
+   * `tsconfig.spec.json`, so indexing only the primary one would leave
+   * every `.spec.ts` out of the graph.
+   */
+  readonly tsConfigPaths?: readonly string[];
 }
 
 export interface Workspace {
@@ -85,20 +93,28 @@ interface RawAngularJson {
 /** Preference order when looking for a project's "main" tsconfig. */
 const TSCONFIG_TARGET_PRIORITY = ['build', 'test', 'lint'];
 
-function findTsConfigOption(project: RawAngularProject): string | undefined {
+/**
+ * Every tsconfig the project's targets declare, deduplicated, in
+ * `TSCONFIG_TARGET_PRIORITY` order first and then whatever else is left. The
+ * first entry is the project's "main" tsconfig.
+ */
+function findTsConfigOptions(project: RawAngularProject): readonly string[] {
   const targets = project.architect ?? project.targets;
-  if (!targets) return undefined;
+  if (!targets) return [];
+
+  const found: string[] = [];
+  const add = (tsConfig: string | undefined): void => {
+    if (tsConfig && !found.includes(tsConfig)) found.push(tsConfig);
+  };
 
   for (const targetName of TSCONFIG_TARGET_PRIORITY) {
-    const tsConfig = targets[targetName]?.options?.tsConfig;
-    if (tsConfig) return tsConfig;
+    add(targets[targetName]?.options?.tsConfig);
   }
-
   for (const target of Object.values(targets)) {
-    if (target.options?.tsConfig) return target.options.tsConfig;
+    add(target.options?.tsConfig);
   }
 
-  return undefined;
+  return found;
 }
 
 async function loadAngularCliWorkspace(root: string, angularJsonPath: string): Promise<Workspace> {
@@ -108,12 +124,11 @@ async function loadAngularCliWorkspace(root: string, angularJsonPath: string): P
   const projects: WorkspaceProject[] = [];
   for (const [name, project] of Object.entries(rawProjects)) {
     const projectRoot = normalizeRelativePath(project.root ?? '');
-    const tsConfigOption = findTsConfigOption(project);
+    const tsConfigPaths = findTsConfigOptions(project).map((option) => join(root, option));
 
-    let tsConfigPath = tsConfigOption ? join(root, tsConfigOption) : undefined;
-    if (!tsConfigPath) {
+    if (tsConfigPaths.length === 0) {
       const fallback = join(root, projectRoot, 'tsconfig.json');
-      if (await pathExists(fallback)) tsConfigPath = fallback;
+      if (await pathExists(fallback)) tsConfigPaths.push(fallback);
     }
 
     projects.push({
@@ -121,7 +136,8 @@ async function loadAngularCliWorkspace(root: string, angularJsonPath: string): P
       projectType: project.projectType ?? 'unknown',
       root: projectRoot,
       sourceRoot: project.sourceRoot !== undefined ? normalizeRelativePath(project.sourceRoot) : undefined,
-      tsConfigPath,
+      tsConfigPath: tsConfigPaths[0],
+      tsConfigPaths,
     });
   }
 
@@ -137,7 +153,7 @@ async function loadTsConfigOnlyWorkspace(root: string): Promise<Workspace> {
     kind: 'tsconfig-only',
     configPath: exists ? tsConfigPath : undefined,
     projects: exists
-      ? [{ name: basename(root), projectType: 'unknown', root: '.', tsConfigPath }]
+      ? [{ name: basename(root), projectType: 'unknown', root: '.', tsConfigPath, tsConfigPaths: [tsConfigPath] }]
       : [],
   };
 }

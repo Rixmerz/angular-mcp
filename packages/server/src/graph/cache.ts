@@ -11,7 +11,7 @@
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import type { GraphEdge, GraphNode } from './model.js';
 import { normalizeRelativePath } from './model.js';
@@ -110,13 +110,19 @@ function isCacheFile(value: unknown): value is CacheFile {
 }
 
 /**
- * Reads and writes a `ProjectGraph` cache at `<projectRoot>/<cacheDir>/graph.json`.
+ * Reads and writes a `ProjectGraph` cache at `<projectRoot>/<cacheDir>/graph.json`,
+ * or at `<cacheDir>/graph.json` when `cacheDir` is already absolute — a caller
+ * that passes an absolute path (a test using a temp directory, or a user
+ * keeping the cache outside the analyzed project) means that path, not one
+ * grafted onto the project root.
  */
 export class GraphCache {
   private readonly cacheFilePath: string;
 
   constructor(projectRoot: string, cacheDir: string = DEFAULT_CACHE_DIR) {
-    this.cacheFilePath = join(projectRoot, cacheDir, CACHE_FILE_NAME);
+    this.cacheFilePath = isAbsolute(cacheDir)
+      ? join(cacheDir, CACHE_FILE_NAME)
+      : join(projectRoot, cacheDir, CACHE_FILE_NAME);
   }
 
   get filePath(): string {
