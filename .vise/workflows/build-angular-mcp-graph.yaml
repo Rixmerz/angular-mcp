@@ -1,7 +1,7 @@
 metadata:
   name: Build Angular MCP
-  description: 'Construye el servidor Angular MCP segun docs/PLAN.md: andamiaje, fixtures, extractors,
-    grafo, motor de consultas, motor de reglas y herramientas MCP.'
+  description: 'Builds the Angular MCP server per docs/PLAN.md: template extraction, index orchestration,
+    query tools, rules engine and server wiring.'
   version: 1.0.0
   type: graph
   author: Rixmerz
@@ -11,18 +11,23 @@ nodes:
   is_start: true
   is_end: true
   node_type: dag
-  prompt_injection: 'Construccion del Angular MCP segun docs/PLAN.md.
+  prompt_injection: 'Building the Angular MCP per docs/PLAN.md.
 
-    Cada tarea lee el plan antes de escribir codigo y respeta sus principios:
+    Every task reads the plan before writing code and honours its principles:
 
-    derivar en vez de recordar, servidor determinista, confianza y
+    derive instead of remember, keep the server deterministic, and carry
 
-    proveniencia en cada hecho.
+    confidence and provenance on every fact.
+
+
+    LANGUAGE: all code, comments, docstrings, error messages and documentation
+
+    are written in English. No Spanish anywhere in the repository.
 
     '
   tasks:
   - id: extract-templates
-    name: Extractor de templates en TypeScript
+    name: Template extractor in TypeScript
     max_turns: 140
     role: backend
     complexity: high
@@ -32,24 +37,28 @@ nodes:
     - packages/server/test/indexer/templates.test.ts
     - packages/server/test/indexer/selectors.test.ts
     acceptance:
-    - Parsea templates con parseTemplate del compilador del proyecto
-    - Clasifica interpolacion, property, event, two-way y control flow
-    - Resuelve selectores contra el scope del componente, standalone o NgModule
-    - 'Un template con error de sintaxis no aborta el indice: guarda parseErrors'
-    prompt: "Lee docs/PLAN.md, secciones 4.3, 5.2, riesgos R4 y R14, antes de\nescribir nada.\n\nImplementa\
-      \ dos archivos.\n\n- templates.ts: parsea el template, en archivo o inline, con\n  parseTemplate\
-      \ de @angular/compiler resuelto desde el proyecto\n  analizado. Recorre el AST y emite aristas binds\
-      \ clasificadas:\n  interpolacion, property, event, two-way, control flow\n  @if/@for/@switch/@defer/@let,\
-      \ directivas estructurales viejas\n  *ngIf/*ngFor, pipes y referencias #ref.\n  Si el parseo falla,\
-      \ guarda parseErrors en el nodo Template y\n  continua. Nunca abortes el indice por un template\
-      \ roto.\n- selectors.ts: resuelve un tag o atributo del template al\n  Component, Directive o Pipe\
-      \ correspondiente. El scope sale del\n  array imports del componente standalone, o de las declarations\n\
-      \  del NgModule que lo declara. El caso hibrido, un standalone\n  importado desde un NgModule, debe\
-      \ funcionar. Lo que no resuelvas\n  es confidence 'unknown'.\n\nEl tipo de cada binding sale de\
-      \ la clase del componente via el\ntype checker de TypeScript. NO uses TemplateTypeChecker.\n"
+    - Templates are parsed with parseTemplate from the analyzed project's compiler
+    - Interpolation, property, event, two-way and control flow bindings are classified
+    - Selectors resolve against the component scope, standalone or NgModule
+    - 'A template with a syntax error does not abort the index: parseErrors are stored'
+    prompt: "Read docs/PLAN.md sections 4.3 and 5.2, and risks R4 and R14, before\nwriting anything.\n\
+      \nImplement two files.\n\n- templates.ts: parse the template, whether in a file or inline, with\n\
+      \  parseTemplate from @angular/compiler resolved from the ANALYZED project\n  (use the existing\
+      \ src/indexer/resolve.ts). Walk the AST and emit binds\n  edges classified as: interpolation, property,\
+      \ event, two-way, modern\n  control flow @if/@for/@switch/@defer/@let, legacy structural directives\n\
+      \  *ngIf/*ngFor, pipes and #ref references.\n  If parsing fails, store parseErrors on the Template\
+      \ node and carry on.\n  Never abort the whole index because one template is broken.\n- selectors.ts:\
+      \ resolve a template tag or attribute to its Component,\n  Directive or Pipe. Scope comes from a\
+      \ standalone component's imports\n  array, or from the declarations of the NgModule that declares\
+      \ it. The\n  hybrid case, a standalone component imported from an NgModule, must\n  work. Anything\
+      \ you cannot resolve gets confidence 'unknown'.\n\nBinding types come from the component class via\
+      \ the TypeScript type\nchecker. Do NOT use TemplateTypeChecker.\n\nReuse the existing model in src/graph/model.ts\
+      \ and the extractors already\nin src/indexer/extractors/ as a style reference.\n\nLANGUAGE: write\
+      \ ALL comments, docstrings, error messages and any\ndocumentation in English. The repository is\
+      \ English-only.\n"
     timeout_s: 2700
   - id: indexer
-    name: Orquestador del indice en TypeScript
+    name: Index orchestrator in TypeScript
     max_turns: 120
     role: backend
     complexity: high
@@ -61,19 +70,21 @@ nodes:
     - packages/server/test/indexer/index.test.ts
     - packages/server/test/indexer/incremental.test.ts
     acceptance:
-    - Indexa un proyecto completo llamando a todos los extractors
-    - La reindexacion incremental solo reprocesa archivos cuyo hash cambio
-    - Reporta nodos por tipo, archivos procesados, tiempo y errores de parseo
-    - Un archivo roto no aborta el indice
-    prompt: "Lee docs/PLAN.md, secciones 4.1 y 7 Fase 1, antes de escribir nada.\n\nImplementa el orquestador\
-      \ que recorre los archivos del proyecto,\nllama a cada extractor y construye el ProjectGraph.\n\n\
-      - index.ts: indexacion completa de un proyecto de angular.json.\n  Parsea templates bajo demanda\
-      \ y cachea.\n- incremental.ts: compara hashes, reindexa solo lo cambiado,\n  invalida las aristas\
-      \ que salian de los archivos afectados.\n\nDevuelve un resumen: nodos por tipo, archivos, tiempo,\
-      \ errores de\nparseo. Un archivo que falla se registra y se sigue.\n"
+    - Indexes a whole project by calling every extractor
+    - Incremental reindexing only reprocesses files whose hash changed
+    - Reports nodes per type, files processed, elapsed time and parse errors
+    - A broken file does not abort the index
+    prompt: "Read docs/PLAN.md sections 4.1 and 7 Phase 1 before writing anything.\n\nImplement the orchestrator\
+      \ that walks the project's files, calls each\nextractor already present in src/indexer/extractors/\
+      \ and builds the\nProjectGraph from src/graph/.\n\n- index.ts: full indexing of one angular.json\
+      \ project. Templates are\n  parsed on demand and cached.\n- incremental.ts: compare hashes, reindex\
+      \ only what changed, invalidate\n  the edges that originated in the affected files.\n\nReturn a\
+      \ summary: nodes per type, files, elapsed time, parse errors. A\nfile that fails is recorded and\
+      \ the walk continues.\n\nLANGUAGE: write ALL comments, docstrings, error messages and any\ndocumentation\
+      \ in English. The repository is English-only.\n"
     timeout_s: 2400
   - id: query-tools
-    name: Herramientas de consulta e impacto en TypeScript
+    name: Query and impact tools in TypeScript
     max_turns: 150
     role: backend
     complexity: high
@@ -83,25 +94,26 @@ nodes:
     - packages/server/src/tools/**
     - packages/server/test/tools/**
     acceptance:
-    - Las diez herramientas de la Fase 1 de la seccion 6 existen
-    - Cada una declara esquema Zod de entrada, outputSchema y anotaciones
-    - Todas son readOnlyHint true
-    - angular_find_symbol siempre devuelve candidatos, nunca adivina uno
-    - angular_impact_of recorre consumidores y dependencias con limite de profundidad
-    prompt: "Lee docs/PLAN.md, seccion 6 Fase 1 completa, y los riesgos R7 y\nR13, antes de escribir nada.\n\
-      \nImplementa las diez herramientas de la Fase 1, una por archivo, en\npackages/server/src/tools/:\n\
-      \nindex_project, get_index_status, find_symbol, get_component,\nget_service, get_route_tree, who_uses,\
-      \ get_template_bindings,\nlist_http_calls, impact_of.\n\nTodas con el prefijo angular_. Cada una:\n\
-      - Esquema de entrada con Zod, con descripciones en cada campo.\n- outputSchema declarado.\n- Anotaciones:\
-      \ readOnlyHint true, destructiveHint false,\n  idempotentHint true, openWorldHint false.\n- Acepta\
-      \ limit, offset y format donde corresponda.\n- Errores accionables: que fallo y que intentar despues.\n\
-      \nR13: el id de simbolo es ruta#nombre. find_symbol devuelve\ncandidatos. Las demas exigen el ref\
-      \ completo y, si reciben un\nnombre ambiguo, devuelven los candidatos en vez de elegir.\n\nR7: cada\
-      \ hecho sale con su confidence y su proveniencia. La\ndescripcion de cada herramienta dice explicitamente\
-      \ que campos\npueden venir inferidos.\n"
+    - The ten Phase 1 tools from section 6 exist
+    - Each declares a Zod input schema, an outputSchema and annotations
+    - All are readOnlyHint true
+    - angular_find_symbol always returns candidates, never guesses one
+    - angular_impact_of walks consumers and dependencies with a depth limit
+    prompt: "Read docs/PLAN.md section 6 Phase 1 in full, plus risks R7 and R13,\nbefore writing anything.\n\
+      \nImplement the ten Phase 1 tools, one per file, in src/tools/:\n\nindex_project, get_index_status,\
+      \ find_symbol, get_component,\nget_service, get_route_tree, who_uses, get_template_bindings,\nlist_http_calls,\
+      \ impact_of.\n\nAll prefixed angular_. Each one:\n- Zod input schema, with a description on every\
+      \ field.\n- A declared outputSchema.\n- Annotations: readOnlyHint true, destructiveHint false,\n\
+      \  idempotentHint true, openWorldHint false.\n- Accepts limit, offset and format where it applies,\
+      \ using the existing\n  src/format/ layer.\n- Actionable errors: what failed and what to try next.\n\
+      \nR13: a symbol id is path#name. find_symbol returns candidates. The others\nrequire the full ref\
+      \ and, given an ambiguous name, return the candidates\ninstead of choosing.\n\nR7: every fact carries\
+      \ its confidence and provenance. Each tool's\ndescription states explicitly which fields may be\
+      \ inferred.\n\nLANGUAGE: write ALL comments, docstrings, error messages and any\ndocumentation in\
+      \ English. The repository is English-only.\n"
     timeout_s: 2700
   - id: rules-engine
-    name: Motor de reglas de arquitectura en TypeScript
+    name: Architecture rules engine in TypeScript
     max_turns: 150
     role: backend
     complexity: high
@@ -112,27 +124,27 @@ nodes:
     - packages/server/test/rules/**
     - docs/RULES.md
     acceptance:
-    - Valida angular-mcp.rules.yaml contra un esquema Zod
-    - Evalua layers, boundaries y constraints contra el grafo
-    - angular_check_rules acepta un diff unificado y reporta violaciones con la ruta permitida sugerida
-    - Importa configuracion de sheriff y de Nx boundaries sin exigir duplicarla
-    - Cero falsos positivos sobre las fixtures
-    prompt: "Lee docs/PLAN.md, secciones 5.3 y 6 Fase 2, y el riesgo R10, antes\nde escribir nada.\n\n\
-      Implementa el motor de reglas en packages/server/src/rules/.\n\n- schema.ts: esquema Zod del archivo\
-      \ angular-mcp.rules.yaml tal\n  como lo define la seccion 5.3, con version, layers, boundaries,\n\
-      \  constraints y decisions.\n- load.ts: carga y valida. Errores de esquema accionables, con la\n\
-      \  linea del yaml.\n- evaluate.ts: resuelve la capa de cada archivo por glob, evalua\n  boundaries\
-      \ sobre las aristas del grafo, y las constraints de tipo\n  forbid y require. Severidad error o\
-      \ warning.\n- diff.ts: parsea un diff unificado, mapea los archivos tocados a\n  nodos y evalua\
-      \ solo las aristas afectadas.\n- importers/sheriff.ts e importers/nx.ts: leen la configuracion que\n\
-      \  el proyecto ya tenga y la traducen a layers y boundaries. R10\n  dice que no debe haber dos fuentes\
-      \ de verdad.\n\nTambien implementa las tres herramientas de la Fase 2:\nangular_list_rules, angular_check_rules\
-      \ y angular_explain_layer.\nVan en src/tools/, pero coordinate: ese directorio es de\nquery-tools.\
-      \ Escribe las tuyas en src/rules/tools/ y exportalas\npara que el cableado del servidor las registre.\n\
-      \nEscribe docs/RULES.md documentando el formato con ejemplos.\n"
+    - Validates angular-mcp.rules.yaml against a Zod schema
+    - Evaluates layers, boundaries and constraints against the graph
+    - angular_check_rules takes a unified diff and reports violations with a suggested allowed path
+    - Imports sheriff and Nx boundary configuration without requiring duplication
+    - Zero false positives on the fixtures
+    prompt: "Read docs/PLAN.md sections 5.3 and 6 Phase 2, plus risk R10, before\nwriting anything.\n\n\
+      Implement the rules engine in src/rules/.\n\n- schema.ts: Zod schema for angular-mcp.rules.yaml\
+      \ exactly as section 5.3\n  defines it, with version, layers, boundaries, constraints and decisions.\n\
+      - load.ts: load and validate. Schema errors must be actionable and name\n  the YAML line.\n- evaluate.ts:\
+      \ resolve each file's layer by glob, evaluate boundaries over\n  the graph's edges, and the forbid\
+      \ and require constraints. Severity\n  error or warning.\n- diff.ts: parse a unified diff, map touched\
+      \ files to nodes and evaluate\n  only the affected edges.\n- importers/sheriff.ts and importers/nx.ts:\
+      \ read whatever configuration\n  the project already has and translate it into layers and boundaries.\n\
+      \  R10 says there must not be two sources of truth.\n\nAlso implement the three Phase 2 tools: angular_list_rules,\n\
+      angular_check_rules and angular_explain_layer. Put them in\nsrc/rules/tools/ and export them, because\
+      \ src/tools/ belongs to another\ntask.\n\nWrite docs/RULES.md documenting the format with examples.\n\
+      \nLANGUAGE: write ALL comments, docstrings, error messages and any\ndocumentation in English. The\
+      \ repository is English-only.\n"
     timeout_s: 2700
   - id: server-wiring
-    name: Cableado del servidor MCP en TypeScript
+    name: MCP server wiring in TypeScript
     max_turns: 100
     role: backend
     complexity: medium
@@ -146,22 +158,23 @@ nodes:
     - packages/server/src/prompts/**
     - packages/server/test/server.test.ts
     acceptance:
-    - El servidor arranca sobre stdio y lista todas las herramientas
-    - Ningun log va a stdout
-    - Expone los recursos angular://project/summary y angular://rules
-    - Expone el prompt angular_plan_change
-    - Valida que toda ruta recibida resuelva dentro de la raiz del proyecto
-    prompt: "Lee docs/PLAN.md, secciones 6 Fase 4 y el riesgo R11, antes de\nescribir nada.\n\nCablea\
-      \ el servidor MCP sobre stdio con el SDK oficial.\n\n- server.ts: registra todas las herramientas\
-      \ de src/tools/ y de\n  src/rules/tools/, los recursos y el prompt. Capa fina, sin\n  logica de\
-      \ dominio.\n- index.ts: entrada stdio. Todo log a stderr, nunca a stdout.\n- resources/: angular://project/summary\
-      \ y angular://rules.\n- prompts/: angular_plan_change, la plantilla que guia la secuencia\n  find_symbol,\
-      \ get_component, impact_of, find_similar, check_rules.\n\nR11, seguridad: valida que cualquier path\
-      \ recibido resuelva dentro\nde la raiz del proyecto. Sin shell: si en algun momento ejecutas un\n\
-      proceso, spawn con argumentos como array. Sin acceso de red.\n"
+    - The server starts over stdio and lists every tool
+    - No log goes to stdout
+    - Exposes the angular://project/summary and angular://rules resources
+    - Exposes the angular_plan_change prompt
+    - Validates that every incoming path resolves inside the project root
+    prompt: "Read docs/PLAN.md section 6 Phase 4 and risk R11 before writing anything.\n\nWire the MCP\
+      \ server over stdio with the official SDK.\n\n- server.ts: register every tool from src/tools/ and\
+      \ src/rules/tools/,\n  the resources and the prompt. A thin layer, no domain logic.\n- index.ts:\
+      \ stdio entry point. All logging to stderr, never stdout.\n- resources/: angular://project/summary\
+      \ and angular://rules.\n- prompts/: angular_plan_change, the template that guides the sequence\n\
+      \  find_symbol, get_component, impact_of, find_similar, check_rules.\n\nR11, security: validate\
+      \ that any incoming path resolves inside the\nproject root. No shell: if you ever spawn a process,\
+      \ pass arguments as an\narray. No network access.\n\nLANGUAGE: write ALL comments, docstrings, error\
+      \ messages and any\ndocumentation in English. The repository is English-only.\n"
     timeout_s: 1800
   - id: ground-truth
-    name: Grafo esperado de las fixtures
+    name: Expected graph for the fixtures
     max_turns: 140
     role: test
     complexity: high
@@ -172,38 +185,41 @@ nodes:
     - fixtures/ngmodule-app/expected-graph.json
     - packages/server/test/integration/**
     acceptance:
-    - Los dos expected-graph.json estan escritos a mano desde el codigo de las fixtures
-    - La prueba de integracion compara por igualdad estructural ignorando orden
-    - Cualquier divergencia falla la prueba, no advierte
-    prompt: 'Lee docs/PLAN.md, secciones 9.2 y 7 Fase 1, antes de escribir nada.
+    - Both expected-graph.json files are written by hand from the fixture source
+    - The integration test compares by structural equality, ignoring order
+    - Any divergence fails the test, it does not warn
+    prompt: 'Read docs/PLAN.md sections 9.2 and 7 Phase 1 before writing anything.
 
 
-      Escribe el ground truth de las dos fixtures LEYENDO SU CODIGO, no
+      Write the ground truth for both fixtures by READING THEIR SOURCE, not by
 
-      ejecutando el indexador. El punto de un ground truth es ser
+      running the indexer. The whole point of a ground truth is to be
 
-      independiente de lo que se esta probando. Si lo generas con el
+      independent of the thing under test. If you generate it with the indexer,
 
-      indexador, la prueba solo verifica que el indexador es consistente
-
-      consigo mismo.
+      the test only proves the indexer agrees with itself.
 
 
-      Luego escribe la prueba de integracion que indexa cada fixture y
+      Then write the integration test that indexes each fixture and compares it
 
-      compara con su expected-graph.json por igualdad estructural,
+      against its expected-graph.json by structural equality, ignoring the
 
-      ignorando el orden de nodos y aristas.
+      order of nodes and edges.
 
 
-      Reporta en tu resultado la precision y el recall que midas. El
+      Report the precision and recall you measure. The Phase 1 exit criterion
 
-      criterio de salida de la Fase 1 es precision >= 95% y recall >= 90%.
+      is precision >= 95% and recall >= 90%.
+
+
+      LANGUAGE: write ALL comments, docstrings, error messages and any
+
+      documentation in English. The repository is English-only.
 
       '
     timeout_s: 2400
   - id: review
-    name: Revision adversarial
+    name: Adversarial review
     max_turns: 80
     role: review
     writes: false
@@ -213,19 +229,20 @@ nodes:
     - ground-truth
     verifiers: 2
     acceptance:
-    - Cada principio de la seccion 2 del plan se verifica contra el codigo real
-    - Se nombra cada incumplimiento con archivo y linea
-    prompt: "Lee docs/PLAN.md, seccion 2, antes de revisar.\n\nRevisa el codigo construido contra los\
-      \ siete principios del plan.\nEn particular:\n\n- P1: hay algun hecho estructural que se persista\
-      \ y no se pueda\n  rederivar del codigo.\n- P2: hay alguna herramienta cuya salida no sea reproducible\
-      \ desde\n  el grafo, es decir que contenga juicio en vez de hechos.\n- P4: hay algun lugar donde\
-      \ se adivine en vez de reportar unknown.\n- P6: hay alguna herramienta que pueda devolver una respuesta\
-      \ sin\n  limite.\n- R11: hay algun path que se use sin validar que caiga dentro de la\n  raiz.\n\
-      \nNombra cada incumplimiento con archivo y linea. No arregles nada:\neres de solo lectura. Si no\
-      \ encuentras incumplimientos de un\nprincipio, dilo explicitamente en vez de omitirlo.\n"
+    - Every principle in section 2 of the plan is checked against the real code
+    - Each breach is named with file and line
+    prompt: "Read docs/PLAN.md section 2 before reviewing.\n\nReview the code built so far against the\
+      \ plan's seven principles. In\nparticular:\n\n- P1: is any structural fact persisted that cannot\
+      \ be re-derived from the\n  code.\n- P2: is there any tool whose output is not reproducible from\
+      \ the graph,\n  that is, that contains judgement instead of facts.\n- P4: is there anywhere that\
+      \ guesses instead of reporting unknown.\n- P6: is there any tool that can return an unbounded response.\n\
+      - R11: is there any path used without validating that it falls inside the\n  project root.\n\nName\
+      \ each breach with file and line. Do not fix anything: you are\nread-only. If you find no breach\
+      \ of a principle, say so explicitly rather\nthan omitting it.\n\nLANGUAGE: write ALL comments, docstrings,\
+      \ error messages and any\ndocumentation in English. The repository is English-only.\n"
     timeout_s: 1800
   - id: docs
-    name: README e instalacion
+    name: README and tool catalogue
     max_turns: 60
     role: docs
     complexity: low
@@ -235,27 +252,32 @@ nodes:
     - README.md
     - docs/TOOLS.md
     acceptance:
-    - El README explica que hace el servidor y como instalarlo en Claude Code y Cursor
-    - docs/TOOLS.md lista cada herramienta con entrada, salida y un ejemplo
-    - Al menos tres ejemplos de uso reales
-    prompt: 'Lee docs/PLAN.md antes de escribir.
+    - The README explains what the server does and how to install it in Claude Code and Cursor
+    - docs/TOOLS.md lists every tool with its input, output and an example
+    - At least three real usage examples
+    prompt: 'Read docs/PLAN.md before writing.
 
 
-      Actualiza README.md: que resuelve el servidor, como instalarlo en
+      Update README.md: what the server solves, how to install it in Claude Code
 
-      Claude Code y en Cursor con el bloque de configuracion MCP, y un
+      and in Cursor with the MCP configuration block, and an example session
 
-      ejemplo de sesion que muestre el beneficio.
-
-
-      Escribe docs/TOOLS.md: cada herramienta con su entrada, su salida y
-
-      un ejemplo real tomado de las fixtures.
+      that shows the benefit.
 
 
-      No inventes herramientas que no existan en el codigo. Lee
+      Write docs/TOOLS.md: every tool with its input, its output and a real
 
-      packages/server/src/tools/ y src/rules/tools/ antes de documentar.
+      example taken from the fixtures.
+
+
+      Do not invent tools that do not exist in the code. Read src/tools/ and
+
+      src/rules/tools/ before documenting.
+
+
+      LANGUAGE: write ALL comments, docstrings, error messages and any
+
+      documentation in English. The repository is English-only.
 
       '
     timeout_s: 1200

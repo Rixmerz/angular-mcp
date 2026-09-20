@@ -1,36 +1,36 @@
-# Tareas
+# Tasks
 
-## Fase 0 — Fundaciones
+## Phase 0 — Foundations
 
-- [ ] Andamiaje del monorepo, TypeScript estricto, vitest, tsup, eslint
-- [ ] Integracion continua con matriz de versiones de Angular
-- [ ] App fixture standalone
-- [ ] App fixture NgModule
-- [ ] Grafo esperado de ambas fixtures, escrito a mano
+- [x] Monorepo scaffolding: strict TypeScript, vitest, tsup, eslint
+- [x] Continuous integration across an Angular version matrix
+- [x] Standalone test fixture
+- [x] NgModule test fixture
+- [ ] Expected graph for both fixtures, written by hand
 
-## Fase 1 — Indexador y consultas
+## Phase 1 — Indexer and queries
 
-- [ ] Modelo del grafo, indices y cache por hash
-- [ ] Carga del workspace y resolucion del compilador del proyecto
-- [ ] Extractor de decoradores, inyeccion y modulos
-- [ ] Extractor de estado reactivo
-- [ ] Extractor de templates y resolucion de selectores
-- [ ] Extractor de rutas
-- [ ] Extractor de llamadas HTTP y specs
-- [ ] Orquestador del indice con reindexacion incremental
-- [ ] Capa de formato, paginacion y truncado
-- [ ] Diez herramientas de consulta e impacto
+- [x] Graph model, indexes and hash-based cache
+- [x] Workspace loading and compiler resolution from the analyzed project
+- [x] Decorator, dependency injection and module extractors
+- [x] Reactive state extractor
+- [ ] Template extractor and selector resolution
+- [x] Route extractor
+- [x] HTTP call and spec extractors
+- [ ] Index orchestrator with incremental reindexing
+- [x] Formatting, pagination and truncation layer
+- [ ] Ten query and impact tools
 
-## Fase 2 — Reglas
+## Phase 2 — Rules
 
-- [ ] Esquema y carga del archivo de reglas
-- [ ] Evaluacion de capas, limites y restricciones
-- [ ] Verificacion de un diff unificado
-- [ ] Importadores de sheriff y de limites de Nx
-- [ ] Documentacion del formato de reglas
+- [ ] Rules file schema and loading
+- [ ] Layer, boundary and constraint evaluation
+- [ ] Unified diff verification
+- [ ] Sheriff and Nx boundary importers
+- [ ] Rules format documentation
 
-## Cierre
+## Closing
 
-- [ ] Cableado del servidor sobre stdio, recursos y prompt
-- [ ] Revision adversarial contra los principios del plan
-- [ ] README y catalogo de herramientas
+- [ ] Server wiring over stdio, resources and prompt
+- [ ] Adversarial review against the plan's principles
+- [ ] README and tool catalogue

@@ -1,13 +1,13 @@
 # angular-mcp
 
-Servidor MCP que expone el grafo semántico de un proyecto Angular
-(componentes, inyección de dependencias, signals, templates, rutas, llamadas
-HTTP y tests) como herramientas de consulta, para que un agente no tenga que
-redescubrirlo archivo por archivo en cada tarea.
+An MCP server that exposes the semantic graph of an Angular project
+(components, dependency injection, signals, templates, routes, HTTP calls
+and tests) as query tools, so an agent does not have to rediscover it file
+by file on every task.
 
-Estado: en planificación. El plan de construcción está en
+Status: under construction. The build plan lives in
 [`docs/PLAN.md`](docs/PLAN.md).
 
-## Licencia
+## License
 
-Por definir. Ver la sección de decisiones abiertas del plan.
+To be decided. See the open decisions section of the plan.
