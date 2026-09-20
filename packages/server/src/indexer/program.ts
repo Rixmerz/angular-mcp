@@ -73,3 +73,52 @@ export function loadProgramForProject(typescript: typeof TS, project: WorkspaceP
 
   return createProjectProgram(typescript, project.tsConfigPath);
 }
+
+/**
+ * One program per tsconfig the project declares, so that sources split across
+ * several tsconfigs all get indexed. A standard Angular app puts application
+ * code behind `tsconfig.app.json` and specs behind `tsconfig.spec.json`; a
+ * program built from only the first contains no `.spec.ts` at all.
+ *
+ * A tsconfig that fails to load does not take the others down with it: the
+ * error is returned alongside the programs that did load, for the caller to
+ * report as a broken file (R14).
+ */
+export function loadProgramsForProject(
+  typescript: typeof TS,
+  project: WorkspaceProject,
+): { readonly programs: readonly LoadedProgram[]; readonly errors: readonly { file: string; error: unknown }[] } {
+  const declared = project.tsConfigPaths ?? [];
+  const tsConfigPaths = declared.length > 0
+    ? declared
+    : project.tsConfigPath
+      ? [project.tsConfigPath]
+      : [];
+
+  if (tsConfigPaths.length === 0) {
+    return {
+      programs: [],
+      errors: [
+        {
+          file: project.root,
+          error: new Error(
+            `No tsconfig was detected for project "${project.name}". ` +
+              `Check the "architect" section of angular.json, or add a "tsconfig.json" in "${project.root}".`,
+          ),
+        },
+      ],
+    };
+  }
+
+  const programs: LoadedProgram[] = [];
+  const errors: { file: string; error: unknown }[] = [];
+  for (const tsConfigPath of tsConfigPaths) {
+    try {
+      programs.push(createProjectProgram(typescript, tsConfigPath));
+    } catch (error) {
+      errors.push({ file: tsConfigPath, error });
+    }
+  }
+
+  return { programs, errors };
+}
