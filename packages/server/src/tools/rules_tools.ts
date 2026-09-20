@@ -17,6 +17,7 @@ import { listRules } from '../rules/tools/list-rules.js';
 
 import { defineTool, READ_ONLY_ANNOTATIONS } from './internal/define.js';
 import { formattedResponseSchema, pagingInputShape, rootInputField } from './internal/schemas.js';
+import { DEFAULT_LIMIT } from '../format/paginate.js';
 
 const ruleOriginSchema = z
   .enum(['own', 'sheriff', 'nx'])
@@ -56,9 +57,14 @@ export const checkRulesTool = defineTool({
     ...pagingInputShape,
   },
   outputSchema: {
-    violationCount: z.number().int(),
-    errorCount: z.number().int().describe('How many of the violations have severity "error".'),
-    violations: z.array(violationSchema),
+    violationCount: z.number().int().describe('Total number of violations, before pagination.'),
+    errorCount: z.number().int().describe('How many of the violations have severity "error", before pagination.'),
+    violations: z
+      .array(violationSchema)
+      .describe(
+        'The same page of violations "result" shows, in structured form — bounded by "limit"/"offset" like every ' +
+          'other list (docs/PLAN.md P6, R6). "violationCount" is the untruncated total; page through for the rest.',
+      ),
     result: formattedResponseSchema,
   },
   annotations: { ...READ_ONLY_ANNOTATIONS, title: 'Check rules' },
@@ -75,10 +81,17 @@ export const checkRulesTool = defineTool({
       },
     );
 
+    // The structured array is paginated the same way the formatted response
+    // is: returning every violation of a large project beside an 8 KB summary
+    // would put the unbounded payload straight back into the caller's context.
+    const offset = input.offset ?? 0;
+    const limit = input.limit ?? DEFAULT_LIMIT;
+    const page = violations.slice(offset, offset + limit);
+
     return {
       violationCount: violations.length,
       errorCount: violations.filter((violation) => violation.severity === 'error').length,
-      violations: violations.map((violation) => ({
+      violations: page.map((violation) => ({
         kind: violation.kind,
         ruleId: violation.ruleId,
         severity: violation.severity,
