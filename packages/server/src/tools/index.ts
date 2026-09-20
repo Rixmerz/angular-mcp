@@ -13,6 +13,9 @@ export type { ToolAnnotations, ToolDefinition } from './internal/define.js';
 export { AmbiguousRefError, InvalidInputError, NotIndexedError, RefNotFoundError, ToolError } from './internal/errors.js';
 export type { RefCandidate } from './internal/errors.js';
 
+export { assertInsideRoot, assertProjectRoot, isInsideRoot, validatePathInputs } from './internal/paths.js';
+export { PHASE_2_TOOLS, checkRulesTool, explainLayerTool, listRulesTool } from './rules_tools.js';
+
 export { indexProjectTool } from './index_project.js';
 export { getIndexStatusTool } from './get_index_status.js';
 export { findSymbolTool } from './find_symbol.js';
