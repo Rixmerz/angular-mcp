@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, Inject, Optional } from '@angular/core';
+
+import { APP_CONFIG, AppConfig } from './core';
 
 @Component({
   selector: 'app-root',
@@ -7,4 +9,10 @@ import { Component } from '@angular/core';
 })
 export class AppComponent {
   title = 'ngmodule-app';
+
+  constructor(@Optional() @Inject(APP_CONFIG) config: AppConfig | null) {
+    if (config) {
+      this.title = config.appName;
+    }
+  }
 }
