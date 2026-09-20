@@ -30,11 +30,13 @@ nodes:
 
       - id: "scaffold"
         name: "Andamiaje del paquete y CI en TypeScript"
+        max_turns: 80
         role: "backend"
         complexity: "medium"
         ownership:
           - "package.json"
           - "pnpm-workspace.yaml"
+          - "pnpm-lock.yaml"
           - ".gitignore"
           - ".github/**"
           - "packages/server/package.json"
@@ -72,6 +74,7 @@ nodes:
 
       - id: "graph-model"
         name: "Modelo del grafo del proyecto en TypeScript"
+        max_turns: 120
         role: "backend"
         complexity: "high"
         ownership:
@@ -109,6 +112,7 @@ nodes:
 
       - id: "fixture-standalone"
         name: "App fixture standalone"
+        max_turns: 150
         role: "frontend"
         complexity: "medium"
         ownership:
@@ -146,6 +150,7 @@ nodes:
 
       - id: "fixture-ngmodule"
         name: "App fixture NgModule"
+        max_turns: 150
         role: "frontend"
         complexity: "medium"
         ownership:
@@ -175,6 +180,7 @@ nodes:
 
       - id: "program-loader"
         name: "Carga del workspace y del compilador en TypeScript"
+        max_turns: 120
         role: "backend"
         complexity: "high"
         dependencies: ["scaffold", "graph-model"]
@@ -211,6 +217,7 @@ nodes:
 
       - id: "extract-decorators-di"
         name: "Extractor de decoradores e inyeccion en TypeScript"
+        max_turns: 120
         role: "backend"
         complexity: "high"
         dependencies: ["program-loader"]
@@ -245,6 +252,7 @@ nodes:
 
       - id: "extract-signals"
         name: "Extractor de estado reactivo en TypeScript"
+        max_turns: 100
         role: "backend"
         complexity: "high"
         dependencies: ["program-loader"]
@@ -275,6 +283,7 @@ nodes:
 
       - id: "extract-templates"
         name: "Extractor de templates en TypeScript"
+        max_turns: 140
         role: "backend"
         complexity: "high"
         dependencies: ["program-loader"]
@@ -313,6 +322,7 @@ nodes:
 
       - id: "extract-routes"
         name: "Extractor de rutas en TypeScript"
+        max_turns: 100
         role: "backend"
         complexity: "high"
         dependencies: ["program-loader"]
@@ -340,6 +350,7 @@ nodes:
 
       - id: "extract-http"
         name: "Extractor de llamadas HTTP en TypeScript"
+        max_turns: 120
         role: "backend"
         complexity: "high"
         dependencies: ["program-loader"]
@@ -373,6 +384,7 @@ nodes:
 
       - id: "indexer"
         name: "Orquestador del indice en TypeScript"
+        max_turns: 120
         role: "backend"
         complexity: "high"
         dependencies:
@@ -406,6 +418,7 @@ nodes:
 
       - id: "format-layer"
         name: "Capa de formato y paginacion en TypeScript"
+        max_turns: 100
         role: "backend"
         complexity: "medium"
         dependencies: ["graph-model"]
@@ -439,6 +452,7 @@ nodes:
 
       - id: "query-tools"
         name: "Herramientas de consulta e impacto en TypeScript"
+        max_turns: 150
         role: "backend"
         complexity: "high"
         dependencies: ["indexer", "format-layer"]
@@ -480,6 +494,7 @@ nodes:
 
       - id: "rules-engine"
         name: "Motor de reglas de arquitectura en TypeScript"
+        max_turns: 150
         role: "backend"
         complexity: "high"
         dependencies: ["indexer", "format-layer"]
@@ -525,6 +540,7 @@ nodes:
 
       - id: "server-wiring"
         name: "Cableado del servidor MCP en TypeScript"
+        max_turns: 100
         role: "backend"
         complexity: "medium"
         dependencies: ["query-tools", "rules-engine"]
@@ -560,6 +576,7 @@ nodes:
 
       - id: "ground-truth"
         name: "Grafo esperado de las fixtures"
+        max_turns: 140
         role: "test"
         complexity: "high"
         dependencies: ["fixture-standalone", "fixture-ngmodule", "indexer"]
@@ -589,6 +606,7 @@ nodes:
 
       - id: "review"
         name: "Revision adversarial"
+        max_turns: 80
         role: "review"
         writes: false
         complexity: "high"
@@ -619,6 +637,7 @@ nodes:
 
       - id: "docs"
         name: "README e instalacion"
+        max_turns: 60
         role: "docs"
         complexity: "low"
         dependencies: ["server-wiring"]

@@ -11,11 +11,15 @@ import { Observable, tap } from 'rxjs';
 export class LoggingInterceptor implements HttpInterceptor {
   intercept(
     req: HttpRequest<unknown>,
-    next: HttpHandler,
+    next: HttpHandler
   ): Observable<HttpEvent<unknown>> {
-    const start = Date.now();
+    const started = Date.now();
     return next.handle(req).pipe(
-      tap(() => console.log(`[LoggingInterceptor] ${req.method} ${req.url} (${Date.now() - start}ms)`)),
+      tap(() =>
+        console.log(
+          `[LoggingInterceptor] ${req.method} ${req.urlWithParams} (${Date.now() - started}ms)`
+        )
+      )
     );
   }
 }

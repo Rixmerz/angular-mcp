@@ -1,0 +1,16 @@
+<div *ngIf="status === 'ready'; else loadingBlock">
+  <ul>
+    <li *ngFor="let name of names">{{ greet(name) | shout }}</li>
+  </ul>
+</div>
+<ng-template #loadingBlock>
+  <p>Cargando...</p>
+</ng-template>
+
+<div [ngSwitch]="status">
+  <p *ngSwitchCase="'ready'">Listo</p>
+  <p *ngSwitchCase="'loading'">Cargando</p>
+  <p *ngSwitchDefault>Error</p>
+</div>
+
+<app-standalone-badge label="Hibrido"></app-standalone-badge>
