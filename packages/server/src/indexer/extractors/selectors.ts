@@ -308,7 +308,8 @@ function parseSelectorTokens(rawSelector: string): readonly string[] {
 
 function entriesForTarget(node: SelectorTargetNode, targetRef: NodeId, confidence: Confidence): readonly ScopeEntry[] {
   if (node.kind === 'Pipe') {
-    return [{ selector: node.name, targetRef, targetKind: 'Pipe', confidence }];
+    // A pipe is matched in a template by its `pipeName`, never by its class name.
+    return [{ selector: node.pipeName, targetRef, targetKind: 'Pipe', confidence }];
   }
 
   if (!node.selector) return [];

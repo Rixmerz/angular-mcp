@@ -1,7 +1,7 @@
 import * as typescript from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-import { extractDecorators } from '../../src/indexer/extractors/decorators.js';
+import { extractDecorators, standaloneByDefaultFor } from '../../src/indexer/extractors/decorators.js';
 import type { ComponentNode, DirectiveNode, PipeNode, ServiceNode } from '../../src/graph/model.js';
 
 function parse(source: string, fileName = 'src/app/example.component.ts'): typescript.SourceFile {
@@ -206,7 +206,7 @@ describe('extractDecorators — @Directive', () => {
 });
 
 describe('extractDecorators — @Pipe', () => {
-  it('extracts the registered pipe name (not the class name), standalone and pure', () => {
+  it('names the node after the class and keeps the registered pipe name in pipeName', () => {
     const sourceFile = parse(`
       import { Pipe, PipeTransform } from '@angular/core';
 
@@ -221,7 +221,11 @@ describe('extractDecorators — @Pipe', () => {
 
     expect(pipe.kind).toBe('Pipe');
     expect(pipe.id).toBe('src/app/example.component.ts#TruncatePipe');
-    expect(pipe.name).toBe('truncate');
+    // `name` is the class name for every node kind, so angular_find_symbol
+    // finds a pipe by the name it is written under. The template-facing name
+    // is the pipe's selector equivalent and lives in `pipeName`.
+    expect(pipe.name).toBe('TruncatePipe');
+    expect(pipe.pipeName).toBe('truncate');
     expect(pipe.standalone).toBe(true);
     expect(pipe.pure).toBe(true);
   });
@@ -277,5 +281,53 @@ describe('extractDecorators — no decorator', () => {
 
     const { nodes } = extractDecorators(typescript, sourceFile, 'src/app/example.component.ts');
     expect(nodes).toEqual([]);
+  });
+});
+
+describe('extractDecorators — the standalone default', () => {
+  const componentSource = `
+    import { Component } from '@angular/core';
+
+    @Component({ selector: 'app-classic', templateUrl: './classic.component.html' })
+    export class ClassicComponent {}
+  `;
+
+  it('treats an omitted standalone flag as false before Angular 19', () => {
+    const sourceFile = parse(componentSource);
+
+    const { nodes } = extractDecorators(typescript, sourceFile, 'src/app/classic.component.ts', {
+      standaloneByDefault: standaloneByDefaultFor(18),
+    });
+
+    expect((nodes[0] as ComponentNode).standalone).toBe(false);
+  });
+
+  it('treats an omitted standalone flag as true from Angular 19 on', () => {
+    const sourceFile = parse(componentSource);
+
+    const { nodes } = extractDecorators(typescript, sourceFile, 'src/app/classic.component.ts', {
+      standaloneByDefault: standaloneByDefaultFor(19),
+    });
+
+    expect((nodes[0] as ComponentNode).standalone).toBe(true);
+  });
+
+  it('still honors an explicit flag, whichever way the default points', () => {
+    const sourceFile = parse(`
+      import { Component } from '@angular/core';
+
+      @Component({ selector: 'app-explicit', standalone: true, template: '' })
+      export class ExplicitComponent {}
+    `);
+
+    const { nodes } = extractDecorators(typescript, sourceFile, 'src/app/explicit.component.ts', {
+      standaloneByDefault: standaloneByDefaultFor(18),
+    });
+
+    expect((nodes[0] as ComponentNode).standalone).toBe(true);
+  });
+
+  it('assumes a modern default when the Angular version cannot be read', () => {
+    expect(standaloneByDefaultFor(undefined)).toBe(true);
   });
 });

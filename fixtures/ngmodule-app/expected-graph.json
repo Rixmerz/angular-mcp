@@ -1,0 +1,100 @@
+{
+  "_comment": [
+    "Ground truth for the NgModule fixture, written by reading src/ — not by running the indexer",
+    "(docs/PLAN.md 9.2).",
+    "",
+    "This fixture exists for the cases the standalone one cannot cover: classic NgModule declarations",
+    "and providers, constructor DI with @Optional/@Inject, RouterModule.forRoot/forChild with classic",
+    "loadChildren, barrels, and the hybrid case of a standalone component imported from an NgModule",
+    "(docs/PLAN.md R4, R16).",
+    "",
+    "Any divergence fails the integration test. It is not a warning."
+  ],
+
+  "symbols": [
+    { "kind": "Component", "path": "src/app/app.component.ts", "name": "AppComponent", "selector": "app-root" },
+    { "kind": "Component", "path": "src/app/features/greeting/greeting.component.ts", "name": "GreetingComponent", "selector": "app-greeting" },
+    { "kind": "Component", "path": "src/app/features/greeting/standalone-badge.component.ts", "name": "StandaloneBadgeComponent", "selector": "app-standalone-badge" },
+    { "kind": "Component", "path": "src/app/features/about/about.component.ts", "name": "AboutComponent", "selector": "app-about" },
+
+    { "kind": "Pipe", "path": "src/app/shared/pipes/shout.pipe.ts", "name": "ShoutPipe" },
+
+    { "kind": "Service", "path": "src/app/core/greeting.service.ts", "name": "GreetingService" },
+    { "kind": "Service", "path": "src/app/features/about/about.service.ts", "name": "AboutService" },
+
+    { "kind": "Interceptor", "path": "src/app/core/interceptors/logging.interceptor.ts", "name": "LoggingInterceptor" },
+
+    { "kind": "NgModule", "path": "src/app/app.module.ts", "name": "AppModule" },
+    { "kind": "NgModule", "path": "src/app/app-routing.module.ts", "name": "AppRoutingModule" },
+    { "kind": "NgModule", "path": "src/app/shared/shared.module.ts", "name": "SharedModule" },
+    { "kind": "NgModule", "path": "src/app/features/greeting/greeting.module.ts", "name": "GreetingModule" },
+    { "kind": "NgModule", "path": "src/app/features/greeting/greeting-routing.module.ts", "name": "GreetingRoutingModule" },
+    { "kind": "NgModule", "path": "src/app/features/about/about.module.ts", "name": "AboutModule" },
+    { "kind": "NgModule", "path": "src/app/features/about/about-routing.module.ts", "name": "AboutRoutingModule" }
+  ],
+
+  "standaloneComponents": {
+    "_comment": [
+      "The hybrid case (R4): StandaloneBadgeComponent is standalone and is imported by GreetingModule,",
+      "an NgModule. Everything else here is declared the classic way."
+    ],
+    "standalone": ["StandaloneBadgeComponent"],
+    "declaredInNgModule": ["AppComponent", "GreetingComponent", "AboutComponent"]
+  },
+
+  "httpCallsByFile": {
+    "_comment": "One call, in the core service. It is what gives the registered interceptor something to intercept.",
+    "src/app/core/greeting.service.ts": 1
+  },
+
+  "routeCount": {
+    "_comment": "app-routing declares 'greeting', 'about' and '' (redirect); each feature routing module declares one ''.",
+    "src/app/app-routing.module.ts": 3,
+    "src/app/features/greeting/greeting-routing.module.ts": 1,
+    "src/app/features/about/about-routing.module.ts": 1
+  },
+
+  "templateFiles": [
+    "src/app/app.component.html",
+    "src/app/features/greeting/greeting.component.html",
+    "src/app/features/about/about.component.html"
+  ],
+
+  "inlineTemplateOwners": {
+    "_comment": "StandaloneBadgeComponent declares its template inline, not through templateUrl.",
+    "owners": ["StandaloneBadgeComponent"]
+  },
+
+  "ngModuleDeclarations": {
+    "_comment": [
+      "What each @NgModule declares, exactly as written in its decorator. These are recorded as text on",
+      "the NgModule node rather than as edges: resolving an element that is not a plain identifier (say",
+      "RouterModule.forRoot(routes)) would need evaluation the indexer deliberately does not do, so the",
+      "decorator's own text is the only source of truth for this attribute."
+    ],
+    "AppModule": ["AppComponent"],
+    "SharedModule": ["ShoutPipe"],
+    "GreetingModule": ["GreetingComponent"],
+    "AboutModule": ["AboutComponent"],
+    "AppRoutingModule": [],
+    "GreetingRoutingModule": [],
+    "AboutRoutingModule": []
+  },
+
+  "specFiles": [
+    "src/app/app.component.spec.ts",
+    "src/app/features/about/about.component.spec.ts",
+    "src/app/features/about/about.service.spec.ts"
+  ],
+
+  "relations": [
+    { "kind": "calls_http", "from": "GreetingService", "count": 1 },
+
+    { "kind": "intercepted_by", "to": "LoggingInterceptor", "count": 1 },
+
+    { "kind": "renders", "from": "AppComponent", "count": 1 },
+    { "kind": "renders", "from": "GreetingComponent", "count": 1 },
+    { "kind": "renders", "from": "AboutComponent", "count": 1 },
+    { "kind": "renders", "from": "StandaloneBadgeComponent", "count": 1 }
+  ]
+}

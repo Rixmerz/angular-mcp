@@ -1,0 +1,89 @@
+{
+  "_comment": [
+    "Ground truth for the standalone fixture, written by reading src/ — not by running the indexer.",
+    "That independence is the whole point: a ground truth generated from the thing under test only",
+    "proves the indexer agrees with itself (docs/PLAN.md 9.2).",
+    "",
+    "Symbols are addressed by {kind, path, name} rather than by internal node id, so this file states",
+    "what is in the fixture without encoding the graph's id format. Derived nodes that have no",
+    "hand-written name of their own (signals, HTTP calls, routes, templates, specs) are pinned by",
+    "count per file, which is still a fact about the source. Relations are named endpoint to named",
+    "endpoint.",
+    "",
+    "Any divergence fails the integration test. It is not a warning."
+  ],
+
+  "symbols": [
+    { "kind": "Component", "path": "src/app/app.component.ts", "name": "AppComponent", "selector": "app-root" },
+    { "kind": "Component", "path": "src/app/features/users/user-list/user-list.component.ts", "name": "UserListComponent", "selector": "app-user-list" },
+    { "kind": "Component", "path": "src/app/features/orders/order-list/order-list.component.ts", "name": "OrderListComponent", "selector": "app-order-list" },
+    { "kind": "Component", "path": "src/app/features/orders/order-detail/order-detail.component.ts", "name": "OrderDetailComponent", "selector": "app-order-detail" },
+
+    { "kind": "Service", "path": "src/app/core/services/user.service.ts", "name": "UserService" },
+    { "kind": "Service", "path": "src/app/core/services/order.service.ts", "name": "OrderService" },
+
+    { "kind": "Guard", "path": "src/app/core/guards/auth.guard.ts", "name": "authGuard" },
+    { "kind": "Resolver", "path": "src/app/core/resolvers/order.resolver.ts", "name": "orderResolver" },
+    { "kind": "Interceptor", "path": "src/app/core/interceptors/auth.interceptor.ts", "name": "authInterceptor" }
+  ],
+
+  "signalsByOwner": {
+    "_comment": "Every reactive primitive declared on each component, in declaration order.",
+    "UserListComponent": ["pageTitle", "userSelected", "searchTerm", "users", "filteredUsers"],
+    "OrderListComponent": ["pageSize", "currentPage", "paginatorEl", "status", "orders", "totalItems", "totalPages"],
+    "OrderDetailComponent": ["orderId", "order", "hasOrder"]
+  },
+
+  "httpCallsByFile": {
+    "_comment": "One entry per HttpClient call site. UserService and OrderService each make three; the fourth file is the planted violation.",
+    "src/app/core/services/user.service.ts": 3,
+    "src/app/core/services/order.service.ts": 3,
+    "src/app/features/orders/order-detail/order-detail.component.ts": 1
+  },
+
+  "httpUrlPatterns": {
+    "_comment": [
+      "The three URL shapes the fixture deliberately contains (docs/PLAN.md R3). A URL the extractor",
+      "cannot resolve statically must be reported as unknown, never guessed."
+    ],
+    "literal": "https://api.example.com/users",
+    "templateLiteralWithEnvironment": "${environment.apiUrl}/users/${id}",
+    "viaLocalVariable": "${environment.apiUrl}/users/${id}"
+  },
+
+  "routeCount": {
+    "_comment": "app.routes.ts declares '' (redirect), 'users', 'orders'. orders.routes.ts declares '' with children '' and ':id'.",
+    "src/app/app.routes.ts": 3,
+    "src/app/features/orders/orders.routes.ts": 3
+  },
+
+  "templateFiles": [
+    "src/app/app.component.html",
+    "src/app/features/users/user-list/user-list.component.html",
+    "src/app/features/orders/order-list/order-list.component.html",
+    "src/app/features/orders/order-detail/order-detail.component.html"
+  ],
+
+  "specFiles": [
+    "src/app/app.component.spec.ts",
+    "src/app/core/services/user.service.spec.ts",
+    "src/app/features/orders/order-list/order-list.component.spec.ts",
+    "src/app/features/users/user-list/user-list.component.spec.ts"
+  ],
+
+  "relations": [
+    { "kind": "calls_http", "from": "UserService", "count": 3 },
+    { "kind": "calls_http", "from": "OrderService", "count": 3 },
+    { "kind": "calls_http", "from": "OrderDetailComponent", "count": 1 },
+
+    { "kind": "guarded_by", "to": "authGuard", "count": 1 },
+    { "kind": "resolves_with", "to": "orderResolver", "count": 1 },
+
+    { "kind": "intercepted_by", "to": "authInterceptor", "count": 7 },
+
+    { "kind": "renders", "from": "AppComponent", "count": 1 },
+    { "kind": "renders", "from": "UserListComponent", "count": 1 },
+    { "kind": "renders", "from": "OrderListComponent", "count": 1 },
+    { "kind": "renders", "from": "OrderDetailComponent", "count": 1 }
+  ]
+}

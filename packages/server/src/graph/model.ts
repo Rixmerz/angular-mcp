@@ -143,6 +143,12 @@ export interface DirectiveNode extends NodeBase<'Directive'> {
 }
 
 export interface PipeNode extends NodeBase<'Pipe'> {
+  /**
+   * The name the pipe is used by in a template (`@Pipe({ name: 'shout' })`),
+   * which is the pipe's equivalent of a component's selector. `name` stays
+   * the class name, so every node kind is searchable the same way.
+   */
+  readonly pipeName: string;
   readonly standalone: boolean;
   readonly pure: boolean;
 }

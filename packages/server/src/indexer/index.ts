@@ -26,7 +26,7 @@ import { ProjectGraph } from '../graph/index.js';
 import type { ComponentNode, GraphEdge, GraphNode, NgModuleNode, NodeKind, TemplateNode } from '../graph/model.js';
 import { normalizeRelativePath, parseNodeId } from '../graph/model.js';
 
-import { extractDecorators } from './extractors/decorators.js';
+import { extractDecorators, standaloneByDefaultFor } from './extractors/decorators.js';
 import { extractInjections } from './extractors/di.js';
 import { extractHttpCalls } from './extractors/http.js';
 import { extractInterceptors } from './extractors/interceptors.js';
@@ -111,12 +111,13 @@ function extractFile(
   relativePath: string,
   graph: ProjectGraph,
   registrations: InterceptorRegistration[],
+  standaloneByDefault: boolean,
 ): void {
   // Drop whatever this file produced on a previous run before re-deriving it,
   // so a removed class/route/etc. does not linger (R2).
   graph.removeFile(relativePath);
 
-  graph.addNodes(extractDecorators(typescript, sourceFile, relativePath).nodes);
+  graph.addNodes(extractDecorators(typescript, sourceFile, relativePath, { standaloneByDefault }).nodes);
   graph.addNodes(extractSignals(typescript, sourceFile, relativePath));
   graph.addEdges(extractInjections(typescript, sourceFile, relativePath));
 
@@ -283,6 +284,19 @@ function resolveRegisteredInterceptor(
   return byName.length === 1 ? byName[0]?.id : undefined;
 }
 
+/**
+ * The analyzed project's Angular major, read from the `VERSION` its own
+ * `@angular/compiler` exposes (docs/PLAN.md 4.2). `undefined` when it cannot
+ * be read, which callers treat as "a modern version" rather than guessing a
+ * specific one.
+ */
+function angularMajorOf(angularCompiler: unknown): number | undefined {
+  if (typeof angularCompiler !== 'object' || angularCompiler === null) return undefined;
+  const version = (angularCompiler as { VERSION?: { major?: unknown } }).VERSION;
+  const major = Number(version?.major);
+  return Number.isFinite(major) ? major : undefined;
+}
+
 export async function indexProject(options: IndexProjectOptions): Promise<IndexResult> {
   const start = Date.now();
   const { typescript, angularCompiler } = options;
@@ -347,13 +361,17 @@ export async function indexProject(options: IndexProjectOptions): Promise<IndexR
   }
 
   let filesReindexed = 0;
+  // Whether an omitted `standalone:` means standalone depends on the analyzed
+  // project's Angular major (it flipped in v19), so it is read from the
+  // project's own compiler rather than assumed.
+  const standaloneByDefault = standaloneByDefaultFor(angularMajorOf(angularCompiler));
   const interceptorRegistrations: InterceptorRegistration[] = [];
   for (const relativePath of plan.toIndex) {
     const sourceFile = sourceFileByPath.get(relativePath);
     if (!sourceFile) continue;
 
     try {
-      extractFile(typescript, sourceFile, relativePath, graph, interceptorRegistrations);
+      extractFile(typescript, sourceFile, relativePath, graph, interceptorRegistrations, standaloneByDefault);
       filesReindexed += 1;
     } catch (error) {
       brokenFiles.push({ file: relativePath, message: messageOf(error) });

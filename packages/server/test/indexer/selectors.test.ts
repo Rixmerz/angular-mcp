@@ -47,6 +47,8 @@ function pipe(overrides: Partial<PipeNode> & { path: string; name: string }): Pi
   return {
     kind: 'Pipe',
     id: `${overrides.path}#${overrides.name}`,
+    // A test pipe's class name doubles as its template name unless one is given.
+    pipeName: overrides.name,
     standalone: true,
     pure: true,
     ...overrides,
@@ -152,7 +154,7 @@ describe('resolveComponentScope', () => {
     selector: '[appHighlight]',
   });
 
-  const uppercasePipe = pipe({ path: 'src/app/shared/uppercase.pipe.ts', name: 'uppercase' });
+  const uppercasePipe = pipe({ path: 'src/app/shared/uppercase.pipe.ts', name: 'UppercasePipe', pipeName: 'uppercase' });
 
   const knownNodes: readonly SelectorTargetNode[] = [childComponent, highlightDirective, uppercasePipe];
 
