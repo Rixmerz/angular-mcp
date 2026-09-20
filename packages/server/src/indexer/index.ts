@@ -24,11 +24,13 @@ import type * as TS from 'typescript';
 import { GraphCache, hashContent } from '../graph/cache.js';
 import { ProjectGraph } from '../graph/index.js';
 import type { ComponentNode, GraphEdge, GraphNode, NgModuleNode, NodeKind, TemplateNode } from '../graph/model.js';
-import { normalizeRelativePath } from '../graph/model.js';
+import { normalizeRelativePath, parseNodeId } from '../graph/model.js';
 
 import { extractDecorators } from './extractors/decorators.js';
 import { extractInjections } from './extractors/di.js';
 import { extractHttpCalls } from './extractors/http.js';
+import { extractInterceptors } from './extractors/interceptors.js';
+import type { InterceptorRegistration } from './extractors/interceptors.js';
 import { extractModules } from './extractors/modules.js';
 import { extractRoutes } from './extractors/routes.js';
 import type { ComponentScope, SelectorTargetNode } from './extractors/selectors.js';
@@ -108,6 +110,7 @@ function extractFile(
   sourceFile: TS.SourceFile,
   relativePath: string,
   graph: ProjectGraph,
+  registrations: InterceptorRegistration[],
 ): void {
   // Drop whatever this file produced on a previous run before re-deriving it,
   // so a removed class/route/etc. does not linger (R2).
@@ -128,6 +131,10 @@ function extractFile(
   const http = extractHttpCalls(typescript, sourceFile, relativePath);
   graph.addNodes(http.nodes);
   graph.addEdges(http.edges);
+
+  const interceptors = extractInterceptors(typescript, sourceFile, relativePath);
+  graph.addNodes(interceptors.nodes);
+  registrations.push(...interceptors.registrations);
 
   if (relativePath.endsWith('.spec.ts')) {
     const spec = extractSpec(typescript, sourceFile, relativePath);
@@ -255,6 +262,27 @@ function isInsideProject(root: string, absolutePath: string): boolean {
   return !relativePath.split('/').includes('node_modules');
 }
 
+/**
+ * Resolves a registration to the `Interceptor` node it names.
+ *
+ * The extractor derives a node id by joining the import specifier, which is
+ * right for a direct relative import and wrong for a barrel (`./core`
+ * re-exporting `./core/interceptors`) — R16. So when the derived id names no
+ * node, the interceptor is looked up by name instead. A name matching exactly
+ * one indexed interceptor resolves; a name matching several is left
+ * unresolved rather than guessed at (R13).
+ */
+function resolveRegisteredInterceptor(
+  graph: ProjectGraph,
+  registration: InterceptorRegistration,
+): string | undefined {
+  if (graph.hasNode(registration.interceptorId)) return registration.interceptorId;
+
+  const { symbol } = parseNodeId(registration.interceptorId);
+  const byName = graph.nodesByName(symbol).filter((node) => node.kind === 'Interceptor');
+  return byName.length === 1 ? byName[0]?.id : undefined;
+}
+
 export async function indexProject(options: IndexProjectOptions): Promise<IndexResult> {
   const start = Date.now();
   const { typescript, angularCompiler } = options;
@@ -319,15 +347,59 @@ export async function indexProject(options: IndexProjectOptions): Promise<IndexR
   }
 
   let filesReindexed = 0;
+  const interceptorRegistrations: InterceptorRegistration[] = [];
   for (const relativePath of plan.toIndex) {
     const sourceFile = sourceFileByPath.get(relativePath);
     if (!sourceFile) continue;
 
     try {
-      extractFile(typescript, sourceFile, relativePath, graph);
+      extractFile(typescript, sourceFile, relativePath, graph, interceptorRegistrations);
       filesReindexed += 1;
     } catch (error) {
       brokenFiles.push({ file: relativePath, message: messageOf(error) });
+    }
+  }
+
+  // `intercepted_by` (HttpCall -> Interceptor) is the one edge that spans
+  // files in both directions: the call is in a service, the registration is in
+  // app.config.ts or app.module.ts, and the interceptor is in a third file. It
+  // is drawn here, once every file in `toIndex` has produced its nodes.
+  //
+  // A globally registered interceptor sees every request the HttpClient makes,
+  // which is why one edge per (call, interceptor) pair is the honest shape —
+  // Angular offers no per-call opt-out at this level. Interceptors registered
+  // per-request (`HttpContext`) are not detectable here and are not guessed at.
+  //
+  // Known incremental limit, stated rather than hidden (P4): the edges are
+  // drawn for the HttpCalls that were reindexed in this run, because those are
+  // the ones whose cached edges were just dropped. Editing only the
+  // registration file therefore does not redraw edges for calls in untouched
+  // files until those files change or the index is forced.
+  const registrationByInterceptor = new Map<string, InterceptorRegistration>();
+  for (const registration of interceptorRegistrations) {
+    const resolvedId = resolveRegisteredInterceptor(graph, registration);
+    if (resolvedId) registrationByInterceptor.set(resolvedId, registration);
+  }
+  const registeredInterceptorIds = new Set(registrationByInterceptor.keys());
+  if (registeredInterceptorIds.size > 0) {
+
+    for (const relativePath of plan.toIndex) {
+      for (const node of graph.nodesByFile(relativePath)) {
+        if (node.kind !== 'HttpCall') continue;
+
+        for (const interceptorId of registeredInterceptorIds) {
+          const registration = registrationByInterceptor.get(interceptorId);
+          if (!registration) continue;
+
+          graph.addEdge({
+            kind: 'intercepted_by',
+            from: node.id,
+            to: interceptorId,
+            provenance: registration.provenance,
+            confidence: registration.confidence,
+          });
+        }
+      }
     }
   }
 
