@@ -1,33 +1,33 @@
-# Construir el servidor Angular MCP
+# Build the Angular MCP server
 
 ## Why
 
-Un agente que trabaja sobre un proyecto Angular reconstruye en cada tarea el
-mismo grafo de relaciones: componente, template, signal, servicio, inyeccion de
-dependencias, interceptor, HTTP, backend. Ese grafo ya existe de forma explicita
-en el compilador de Angular y en el AST de TypeScript, pero no hay forma de
-consultarlo. El agente lo redescubre leyendo archivos, lo que consume contexto y
-turnos en trabajo que no cambia entre tareas.
+An agent working on an Angular project rebuilds the same relationship graph on
+every task: component, template, signal, service, dependency injection,
+interceptor, HTTP, backend. That graph already exists explicitly in the Angular
+compiler and in the TypeScript AST, but there is no way to query it. The agent
+rediscovers it by reading files, which burns context and turns on work that does
+not change between tasks.
 
 ## What Changes
 
-Este cambio construye las fases 0, 1 y 2 de `docs/PLAN.md`:
+This change builds phases 0, 1 and 2 of `docs/PLAN.md`:
 
-- Andamiaje del monorepo y de la integracion continua.
-- Dos aplicaciones Angular de prueba, una standalone y una NgModule, con su
-  grafo esperado escrito a mano.
-- Indexador con extractors por concepto, sobre la API de TypeScript y el parser
-  de templates del compilador resuelto desde el proyecto analizado.
-- Grafo del proyecto con cache invalidada por hash de archivo.
-- Diez herramientas MCP de consulta e impacto.
-- Motor de reglas de arquitectura declarativas y verificacion de un diff.
-- Cableado del servidor sobre stdio, con recursos y un prompt.
+- Monorepo scaffolding and continuous integration.
+- Two Angular test fixtures, one standalone and one NgModule, with their
+  expected graph written by hand.
+- An indexer with one extractor per concept, built on the TypeScript API and on
+  the template parser resolved from the analyzed project.
+- The project graph, with a cache invalidated by file hash.
+- Ten MCP query and impact tools.
+- A declarative architecture rules engine and diff verification.
+- The server wired over stdio, with resources and a prompt.
 
-Queda fuera, por decision explicita del plan: el analisis en tiempo de
-ejecucion, las mutaciones de alto nivel y otros frameworks.
+Deliberately out of scope, per the plan: runtime analysis, high-level mutations
+and other frameworks.
 
 ## Impact
 
-- Repositorio nuevo. No hay codigo existente que romper.
-- `packages/server` pasa a ser el paquete publicable.
-- `fixtures/` queda como la base de verificacion de precision del grafo.
+- New repository. There is no existing code to break.
+- `packages/server` becomes the publishable package.
+- `fixtures/` becomes the basis for measuring graph accuracy.
