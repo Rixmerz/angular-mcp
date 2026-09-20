@@ -171,6 +171,8 @@ nodes:
           - "packages/server/src/indexer/program.ts"
           - "packages/server/src/indexer/resolve.ts"
           - "packages/server/test/indexer/program.test.ts"
+          - "packages/server/test/indexer/workspace.test.ts"
+          - "packages/server/test/indexer/resolve.test.ts"
         acceptance:
           - "Resuelve typescript y @angular/compiler desde el node_modules del proyecto analizado"
           - "Detecta la version mayor de Angular y la reporta"
@@ -209,6 +211,7 @@ nodes:
           - "packages/server/src/indexer/extractors/modules.ts"
           - "packages/server/test/indexer/decorators.test.ts"
           - "packages/server/test/indexer/di.test.ts"
+          - "packages/server/test/indexer/modules.test.ts"
         acceptance:
           - "Extrae Component, Directive, Pipe, Injectable y NgModule con sus atributos"
           - "Detecta inyeccion por constructor y por inject()"
@@ -273,6 +276,7 @@ nodes:
           - "packages/server/src/indexer/extractors/templates.ts"
           - "packages/server/src/indexer/extractors/selectors.ts"
           - "packages/server/test/indexer/templates.test.ts"
+          - "packages/server/test/indexer/selectors.test.ts"
         acceptance:
           - "Parsea templates con parseTemplate del compilador del proyecto"
           - "Clasifica interpolacion, property, event, two-way y control flow"
@@ -340,6 +344,7 @@ nodes:
           - "packages/server/src/indexer/extractors/http.ts"
           - "packages/server/src/indexer/extractors/specs.ts"
           - "packages/server/test/indexer/http.test.ts"
+          - "packages/server/test/indexer/specs.test.ts"
         acceptance:
           - "Detecta get, post, put, patch y delete de HttpClient"
           - "urlConfidence distingue literal, template y unknown"
@@ -379,6 +384,7 @@ nodes:
           - "packages/server/src/indexer/index.ts"
           - "packages/server/src/indexer/incremental.ts"
           - "packages/server/test/indexer/index.test.ts"
+          - "packages/server/test/indexer/incremental.test.ts"
         acceptance:
           - "Indexa un proyecto completo llamando a todos los extractors"
           - "La reindexacion incremental solo reprocesa archivos cuyo hash cambio"
