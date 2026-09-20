@@ -1,0 +1,633 @@
+metadata:
+  name: "Build Angular MCP"
+  description: "Construye el servidor Angular MCP segun docs/PLAN.md: andamiaje, fixtures, extractors, grafo, motor de consultas, motor de reglas y herramientas MCP."
+  version: "1.0.0"
+  type: "graph"
+  author: "Rixmerz"
+
+# Un solo nodo DAG. Las olas salen de las dependencias entre tareas, no de
+# nodos separados: el plan ya define el orden y duplicarlo en nodos haria que
+# las dos descripciones se contradijeran.
+#
+# Las zonas de escritura (ownership) no se solapan entre tareas hermanas. Esa
+# es la condicion para que el scheduler las despache en paralelo; dos tareas
+# que puedan tocar el mismo archivo corren en serie aunque sean independientes.
+
+nodes:
+  - id: "build"
+    name: "Build"
+    is_start: true
+    is_end: true
+    node_type: "dag"
+    prompt_injection: |
+      Construccion del Angular MCP segun docs/PLAN.md.
+      Cada tarea lee el plan antes de escribir codigo y respeta sus principios:
+      derivar en vez de recordar, servidor determinista, confianza y
+      proveniencia en cada hecho.
+    tasks:
+
+      # ---------- Ola 1: fundaciones ----------
+
+      - id: "graph-model"
+        name: "Modelo del grafo del proyecto en TypeScript"
+        max_turns: 120
+        role: "backend"
+        complexity: "high"
+        ownership:
+          - "packages/server/src/graph/**"
+        acceptance:
+          - "Existen tipos para cada tipo de nodo y cada tipo de arista de la seccion 5 del plan"
+          - "Cada arista lleva provenance y confidence"
+          - "El identificador de nodo es ruta#simbolo, nunca solo el nombre"
+          - "Hay indices por tipo, por nombre y por archivo"
+          - "La cache invalida por hash de archivo"
+        prompt: |
+          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
+          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
+          cero ni concluyas que ya esta listo: revisa cada criterio de
+          aceptacion contra el codigo real y escribe lo que falte.
+
+          Lee docs/PLAN.md, seccion 5 completa, antes de escribir nada.
+
+          Implementa el modelo del grafo del proyecto en
+          packages/server/src/graph/.
+
+          Archivos esperados:
+          - model.ts: tipos de nodos y aristas de las tablas 5.1 y 5.2.
+            Cada arista lleva provenance {file, line, column} y
+            confidence 'certain' | 'inferred' | 'unknown'.
+            El id de nodo es `ruta/relativa.ts#Simbolo`.
+          - index.ts: la clase ProjectGraph con addNode, addEdge, y consultas
+            por tipo, por nombre, por archivo y recorrido de aristas en ambos
+            sentidos. Recorridos con limite de profundidad.
+          - cache.ts: serializacion a .angular-mcp/cache/ con el hash de cada
+            archivo fuente, y deteccion de entradas obsoletas.
+
+          Principio P1 del plan: nada que no se pueda rederivar del codigo se
+          persiste como verdad. La cache es solo aceleracion.
+
+          Escribe pruebas unitarias en packages/server/test/graph/.
+          Espera: ese directorio es tuyo tambien.
+        outputs:
+          nota: "Los tipos que exportes son el contrato para los extractors"
+
+      - id: "fixture-standalone"
+        name: "App fixture standalone"
+        max_turns: 150
+        role: "frontend"
+        complexity: "medium"
+        ownership:
+          - "fixtures/standalone-app/**"
+        acceptance:
+          - "La app compila con ng build"
+          - "Incluye signals, control flow moderno, rutas lazy e interceptores funcionales"
+          - "Incluye un componente que ya implementa paginacion, para probar find_similar"
+          - "Incluye exactamente una violacion de arquitectura plantada"
+        prompt: |
+          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
+          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
+          cero ni concluyas que ya esta listo: revisa cada criterio de
+          aceptacion contra el codigo real y escribe lo que falte.
+
+          Lee docs/PLAN.md, secciones 7 Fase 0 y 9, antes de escribir nada.
+
+          Crea una app Angular standalone minima pero representativa en
+          fixtures/standalone-app/. Angular 18 o superior.
+
+          Debe contener, porque las pruebas dependen de ello:
+          - Componentes con signal, computed, input, input.required, model,
+            output, viewChild y toSignal.
+          - Templates con control flow @if, @for, @switch, @defer y @let,
+            interpolacion, property binding, event binding y two-way.
+          - Rutas con loadComponent, loadChildren, children, guards
+            funcionales y resolvers.
+          - Un interceptor funcional.
+          - Servicios con HttpClient: URL literal, template literal y una
+            construida desde environment.apiUrl.
+          - Specs .spec.ts para al menos dos componentes y un servicio.
+          - Un OrderListComponent que YA implementa paginacion del lado del
+            servidor. Es el patron que find_similar debe encontrar.
+          - Un UserListComponent sin paginacion, que es el objetivo del
+            caso de uso del plan.
+          - Exactamente UNA violacion plantada: un componente que llama a
+            HttpClient directamente. Documentala en un comentario.
+
+          NO crees expected-graph.json. Esa es otra tarea.
+
+      - id: "fixture-ngmodule"
+        name: "App fixture NgModule"
+        max_turns: 150
+        role: "frontend"
+        complexity: "medium"
+        ownership:
+          - "fixtures/ngmodule-app/**"
+        acceptance:
+          - "La app compila con ng build"
+          - "Usa NgModule, inyeccion por constructor y RouterModule"
+          - "Incluye un componente standalone importado desde un NgModule, para el caso hibrido"
+        prompt: |
+          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
+          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
+          cero ni concluyas que ya esta listo: revisa cada criterio de
+          aceptacion contra el codigo real y escribe lo que falte.
+
+          Lee docs/PLAN.md, riesgo R4, antes de escribir nada.
+
+          Crea una app Angular de estilo NgModule en fixtures/ngmodule-app/.
+
+          Debe contener:
+          - AppModule y al menos un feature module con declarations,
+            imports, exports y providers.
+          - Inyeccion por constructor, incluyendo @Optional y @Inject(TOKEN).
+          - RouterModule.forRoot y forChild, con loadChildren clasico.
+          - Directivas estructurales viejas: *ngIf, *ngFor, ngSwitch.
+          - Un pipe declarado en un modulo.
+          - Un interceptor de clase con HTTP_INTERCEPTORS.
+          - Un caso HIBRIDO: un componente standalone importado desde un
+            NgModule. Es el que mas rompe la resolucion de selectores.
+          - Barrels (index.ts) que reexportan, para el riesgo R16.
+
+      # ---------- Ola 2: carga del programa y extractors ----------
+
+      - id: "program-loader"
+        name: "Carga del workspace y del compilador en TypeScript"
+        max_turns: 120
+        role: "backend"
+        complexity: "high"
+        dependencies: ["graph-model"]
+        ownership:
+          - "packages/server/src/indexer/workspace.ts"
+          - "packages/server/src/indexer/program.ts"
+          - "packages/server/src/indexer/resolve.ts"
+          - "packages/server/test/indexer/program.test.ts"
+        acceptance:
+          - "Resuelve typescript y @angular/compiler desde el node_modules del proyecto analizado"
+          - "Detecta la version mayor de Angular y la reporta"
+          - "Lee angular.json y expone los proyectos con su tsconfig"
+          - "Falla con un mensaje accionable si el proyecto no tiene Angular instalado"
+        prompt: |
+          Lee docs/PLAN.md, secciones 4.2, 4.3 y el riesgo R1, antes de
+          escribir nada.
+
+          Implementa la carga del workspace y del programa TypeScript.
+
+          - workspace.ts: detecta la raiz, lee angular.json, expone los
+            proyectos con su sourceRoot y su tsconfig. Soporta workspaces
+            con varios proyectos. Si no hay angular.json, degrada a buscar
+            tsconfig.json en la raiz y reportalo.
+          - resolve.ts: resuelve 'typescript' y '@angular/compiler' desde el
+            node_modules del PROYECTO ANALIZADO, no desde el del servidor.
+            Usa createRequire con la raiz del proyecto. Detecta la version
+            mayor de Angular. Si falta alguno, lanza un error que diga
+            exactamente que instalar.
+          - program.ts: crea el ts.Program con el tsconfig del proyecto y
+            expone el type checker.
+
+          NO uses NgtscProgram ni TemplateTypeChecker. El plan los excluye
+          explicitamente de la version uno.
+
+      - id: "extract-decorators-di"
+        name: "Extractor de decoradores e inyeccion en TypeScript"
+        max_turns: 120
+        role: "backend"
+        complexity: "high"
+        dependencies: ["program-loader"]
+        ownership:
+          - "packages/server/src/indexer/extractors/decorators.ts"
+          - "packages/server/src/indexer/extractors/di.ts"
+          - "packages/server/src/indexer/extractors/modules.ts"
+          - "packages/server/test/indexer/decorators.test.ts"
+          - "packages/server/test/indexer/di.test.ts"
+        acceptance:
+          - "Extrae Component, Directive, Pipe, Injectable y NgModule con sus atributos"
+          - "Detecta inyeccion por constructor y por inject()"
+          - "Cubre @Optional, @Inject(TOKEN) e inject(TOKEN, {optional:true})"
+          - "Las pruebas unitarias de la seccion 9.1 del plan pasan"
+        prompt: |
+          Lee docs/PLAN.md, secciones 5.1, 5.2 y 9.1, antes de escribir nada.
+
+          Implementa tres extractors. Cada uno recibe un ts.SourceFile y el
+          type checker, y emite nodos y aristas del modelo de
+          packages/server/src/graph/model.ts. Son funciones puras.
+
+          - decorators.ts: Component, Directive, Pipe, Injectable con todos
+            los atributos de la tabla 5.1. Distingue standalone de declarado
+            en modulo. Resuelve templateUrl relativo al archivo.
+          - di.ts: aristas injects. Constructor y inject(). Cubre @Optional,
+            @Inject(TOKEN), inject(TOKEN, {optional:true}) e InjectionToken.
+          - modules.ts: NgModule con declarations, imports, exports,
+            providers, y las aristas provides e imports.
+
+          Cada arista con provenance y confidence. Lo que no puedas resolver
+          es confidence 'unknown', nunca una suposicion.
+
+      - id: "extract-signals"
+        name: "Extractor de estado reactivo en TypeScript"
+        max_turns: 100
+        role: "backend"
+        complexity: "high"
+        dependencies: ["program-loader"]
+        ownership:
+          - "packages/server/src/indexer/extractors/signals.ts"
+          - "packages/server/test/indexer/signals.test.ts"
+        acceptance:
+          - "Detecta signal, computed, linkedSignal, input, input.required, model, output, viewChild, toSignal, resource y httpResource"
+          - "Detecta campos Observable declarados"
+          - "Registra el tipo declarado y el valor inicial como texto"
+        prompt: |
+          Lee docs/PLAN.md, secciones 5.1 y 9.1, antes de escribir nada.
+
+          Implementa packages/server/src/indexer/extractors/signals.ts.
+
+          Detecta y emite nodos Signal para: signal, computed, linkedSignal,
+          input, input.required, model, output, viewChild, viewChildren,
+          contentChild, toSignal, resource y httpResource.
+
+          Emite nodos Observable para campos cuyo tipo declarado sea
+          Observable, Subject o BehaviorSubject.
+
+          NO sigas el flujo de RxJS a traves de pipe ni switchMap. El plan lo
+          excluye de la version uno, en la seccion 13.
+
+          Registra typeText y initialValueText como texto tal como aparece en
+          el codigo, sin evaluar.
+
+      - id: "extract-templates"
+        name: "Extractor de templates en TypeScript"
+        max_turns: 140
+        role: "backend"
+        complexity: "high"
+        dependencies: ["program-loader"]
+        ownership:
+          - "packages/server/src/indexer/extractors/templates.ts"
+          - "packages/server/src/indexer/extractors/selectors.ts"
+          - "packages/server/test/indexer/templates.test.ts"
+        acceptance:
+          - "Parsea templates con parseTemplate del compilador del proyecto"
+          - "Clasifica interpolacion, property, event, two-way y control flow"
+          - "Resuelve selectores contra el scope del componente, standalone o NgModule"
+          - "Un template con error de sintaxis no aborta el indice: guarda parseErrors"
+        prompt: |
+          Lee docs/PLAN.md, secciones 4.3, 5.2, riesgos R4 y R14, antes de
+          escribir nada.
+
+          Implementa dos archivos.
+
+          - templates.ts: parsea el template, en archivo o inline, con
+            parseTemplate de @angular/compiler resuelto desde el proyecto
+            analizado. Recorre el AST y emite aristas binds clasificadas:
+            interpolacion, property, event, two-way, control flow
+            @if/@for/@switch/@defer/@let, directivas estructurales viejas
+            *ngIf/*ngFor, pipes y referencias #ref.
+            Si el parseo falla, guarda parseErrors en el nodo Template y
+            continua. Nunca abortes el indice por un template roto.
+          - selectors.ts: resuelve un tag o atributo del template al
+            Component, Directive o Pipe correspondiente. El scope sale del
+            array imports del componente standalone, o de las declarations
+            del NgModule que lo declara. El caso hibrido, un standalone
+            importado desde un NgModule, debe funcionar. Lo que no resuelvas
+            es confidence 'unknown'.
+
+          El tipo de cada binding sale de la clase del componente via el
+          type checker de TypeScript. NO uses TemplateTypeChecker.
+
+      - id: "extract-routes"
+        name: "Extractor de rutas en TypeScript"
+        max_turns: 100
+        role: "backend"
+        complexity: "high"
+        dependencies: ["program-loader"]
+        ownership:
+          - "packages/server/src/indexer/extractors/routes.ts"
+          - "packages/server/test/indexer/routes.test.ts"
+        acceptance:
+          - "Cubre provideRouter, RouterModule.forRoot y forChild"
+          - "Cubre loadComponent, loadChildren con import(), children anidados"
+          - "Detecta guards y resolvers, funcionales y de clase"
+        prompt: |
+          Lee docs/PLAN.md, secciones 5.1, 5.2 y 9.1, antes de escribir nada.
+
+          Implementa packages/server/src/indexer/extractors/routes.ts.
+
+          Reconoce arrays de rutas declarados como literal, pasados a
+          provideRouter, o a RouterModule.forRoot y forChild.
+
+          Por cada ruta emite un nodo Route con path, data, y aristas
+          routes_to, child_of, guarded_by y resolves_with.
+
+          Resuelve loadComponent y loadChildren con import() dinamico hasta
+          el simbolo destino cuando el especificador sea estatico. Cuando no
+          se pueda, confidence 'unknown' con el texto del especificador.
+
+      - id: "extract-http"
+        name: "Extractor de llamadas HTTP en TypeScript"
+        max_turns: 120
+        role: "backend"
+        complexity: "high"
+        dependencies: ["program-loader"]
+        ownership:
+          - "packages/server/src/indexer/extractors/http.ts"
+          - "packages/server/src/indexer/extractors/specs.ts"
+          - "packages/server/test/indexer/http.test.ts"
+        acceptance:
+          - "Detecta get, post, put, patch y delete de HttpClient"
+          - "urlConfidence distingue literal, template y unknown"
+          - "Resuelve environment.apiUrl y constantes simples por evaluacion estatica limitada"
+          - "Nunca inventa una URL: lo no resoluble es unknown"
+        prompt: |
+          Lee docs/PLAN.md, seccion 5.1 y el riesgo R3, antes de escribir
+          nada.
+
+          Implementa dos archivos.
+
+          - http.ts: detecta llamadas a HttpClient. Emite nodos HttpCall con
+            method, urlPattern, urlConfidence, requestTypeText,
+            responseTypeText tomado del generico, y la arista calls_http.
+            Resuelve URL literal, template literal con partes estaticas,
+            concatenacion simple, y referencias a environment.apiUrl o a
+            constantes exportadas. Todo lo demas es urlConfidence 'unknown'
+            con el texto original. El riesgo R3 dice explicitamente: reportar
+            desconocido en vez de adivinar.
+          - specs.ts: asocia archivos .spec.ts a sus simbolos por convencion
+            de nombre y por los imports del propio spec. Emite tested_by.
+
+      # ---------- Ola 3: orquestacion del indice ----------
+
+      - id: "indexer"
+        name: "Orquestador del indice en TypeScript"
+        max_turns: 120
+        role: "backend"
+        complexity: "high"
+        dependencies:
+          - "extract-decorators-di"
+          - "extract-signals"
+          - "extract-templates"
+          - "extract-routes"
+          - "extract-http"
+        ownership:
+          - "packages/server/src/indexer/index.ts"
+          - "packages/server/src/indexer/incremental.ts"
+          - "packages/server/test/indexer/index.test.ts"
+        acceptance:
+          - "Indexa un proyecto completo llamando a todos los extractors"
+          - "La reindexacion incremental solo reprocesa archivos cuyo hash cambio"
+          - "Reporta nodos por tipo, archivos procesados, tiempo y errores de parseo"
+          - "Un archivo roto no aborta el indice"
+        prompt: |
+          Lee docs/PLAN.md, secciones 4.1 y 7 Fase 1, antes de escribir nada.
+
+          Implementa el orquestador que recorre los archivos del proyecto,
+          llama a cada extractor y construye el ProjectGraph.
+
+          - index.ts: indexacion completa de un proyecto de angular.json.
+            Parsea templates bajo demanda y cachea.
+          - incremental.ts: compara hashes, reindexa solo lo cambiado,
+            invalida las aristas que salian de los archivos afectados.
+
+          Devuelve un resumen: nodos por tipo, archivos, tiempo, errores de
+          parseo. Un archivo que falla se registra y se sigue.
+
+      - id: "format-layer"
+        name: "Capa de formato y paginacion en TypeScript"
+        max_turns: 100
+        role: "backend"
+        complexity: "medium"
+        dependencies: ["graph-model"]
+        ownership:
+          - "packages/server/src/format/**"
+          - "packages/server/test/format/**"
+        acceptance:
+          - "Soporta formato markdown y json"
+          - "Aplica limit, offset y devuelve has_more, next_offset y total_count"
+          - "Trunca a 8 KB en markdown y lo declara cuando trunca"
+          - "Cada hecho renderizado muestra su proveniencia"
+        prompt: |
+          Lee docs/PLAN.md, seccion 6 encabezado y el riesgo R6, antes de
+          escribir nada.
+
+          Implementa la capa de formato en packages/server/src/format/.
+
+          - markdown.ts: renderiza nodos, aristas y subgrafos en markdown
+            legible. Resumido por defecto. Muestra archivo y linea de cada
+            hecho, y marca lo inferido.
+          - json.ts: la forma completa, para procesamiento.
+          - paginate.ts: limit por defecto 20, offset, y los metadatos
+            has_more, next_offset y total_count de la seccion de paginacion.
+          - truncate.ts: tope de 8 KB por respuesta en markdown. Cuando
+            trunca, lo dice y explica como pedir el resto.
+
+          El riesgo R6 es que las respuestas grandes reproduzcan el problema
+          que el servidor existe para resolver. Esta capa es la mitigacion.
+
+      # ---------- Ola 4: herramientas y reglas ----------
+
+      - id: "query-tools"
+        name: "Herramientas de consulta e impacto en TypeScript"
+        max_turns: 150
+        role: "backend"
+        complexity: "high"
+        dependencies: ["indexer", "format-layer"]
+        ownership:
+          - "packages/server/src/tools/**"
+          - "packages/server/test/tools/**"
+        acceptance:
+          - "Las diez herramientas de la Fase 1 de la seccion 6 existen"
+          - "Cada una declara esquema Zod de entrada, outputSchema y anotaciones"
+          - "Todas son readOnlyHint true"
+          - "angular_find_symbol siempre devuelve candidatos, nunca adivina uno"
+          - "angular_impact_of recorre consumidores y dependencias con limite de profundidad"
+        prompt: |
+          Lee docs/PLAN.md, seccion 6 Fase 1 completa, y los riesgos R7 y
+          R13, antes de escribir nada.
+
+          Implementa las diez herramientas de la Fase 1, una por archivo, en
+          packages/server/src/tools/:
+
+          index_project, get_index_status, find_symbol, get_component,
+          get_service, get_route_tree, who_uses, get_template_bindings,
+          list_http_calls, impact_of.
+
+          Todas con el prefijo angular_. Cada una:
+          - Esquema de entrada con Zod, con descripciones en cada campo.
+          - outputSchema declarado.
+          - Anotaciones: readOnlyHint true, destructiveHint false,
+            idempotentHint true, openWorldHint false.
+          - Acepta limit, offset y format donde corresponda.
+          - Errores accionables: que fallo y que intentar despues.
+
+          R13: el id de simbolo es ruta#nombre. find_symbol devuelve
+          candidatos. Las demas exigen el ref completo y, si reciben un
+          nombre ambiguo, devuelven los candidatos en vez de elegir.
+
+          R7: cada hecho sale con su confidence y su proveniencia. La
+          descripcion de cada herramienta dice explicitamente que campos
+          pueden venir inferidos.
+
+      - id: "rules-engine"
+        name: "Motor de reglas de arquitectura en TypeScript"
+        max_turns: 150
+        role: "backend"
+        complexity: "high"
+        dependencies: ["indexer", "format-layer"]
+        ownership:
+          - "packages/server/src/rules/**"
+          - "packages/server/test/rules/**"
+          - "docs/RULES.md"
+        acceptance:
+          - "Valida angular-mcp.rules.yaml contra un esquema Zod"
+          - "Evalua layers, boundaries y constraints contra el grafo"
+          - "angular_check_rules acepta un diff unificado y reporta violaciones con la ruta permitida sugerida"
+          - "Importa configuracion de sheriff y de Nx boundaries sin exigir duplicarla"
+          - "Cero falsos positivos sobre las fixtures"
+        prompt: |
+          Lee docs/PLAN.md, secciones 5.3 y 6 Fase 2, y el riesgo R10, antes
+          de escribir nada.
+
+          Implementa el motor de reglas en packages/server/src/rules/.
+
+          - schema.ts: esquema Zod del archivo angular-mcp.rules.yaml tal
+            como lo define la seccion 5.3, con version, layers, boundaries,
+            constraints y decisions.
+          - load.ts: carga y valida. Errores de esquema accionables, con la
+            linea del yaml.
+          - evaluate.ts: resuelve la capa de cada archivo por glob, evalua
+            boundaries sobre las aristas del grafo, y las constraints de tipo
+            forbid y require. Severidad error o warning.
+          - diff.ts: parsea un diff unificado, mapea los archivos tocados a
+            nodos y evalua solo las aristas afectadas.
+          - importers/sheriff.ts e importers/nx.ts: leen la configuracion que
+            el proyecto ya tenga y la traducen a layers y boundaries. R10
+            dice que no debe haber dos fuentes de verdad.
+
+          Tambien implementa las tres herramientas de la Fase 2:
+          angular_list_rules, angular_check_rules y angular_explain_layer.
+          Van en src/tools/, pero coordinate: ese directorio es de
+          query-tools. Escribe las tuyas en src/rules/tools/ y exportalas
+          para que el cableado del servidor las registre.
+
+          Escribe docs/RULES.md documentando el formato con ejemplos.
+
+      # ---------- Ola 5: cableado, verificacion y documentacion ----------
+
+      - id: "server-wiring"
+        name: "Cableado del servidor MCP en TypeScript"
+        max_turns: 100
+        role: "backend"
+        complexity: "medium"
+        dependencies: ["query-tools", "rules-engine"]
+        ownership:
+          - "packages/server/src/index.ts"
+          - "packages/server/src/server.ts"
+          - "packages/server/src/resources/**"
+          - "packages/server/src/prompts/**"
+          - "packages/server/test/server.test.ts"
+        acceptance:
+          - "El servidor arranca sobre stdio y lista todas las herramientas"
+          - "Ningun log va a stdout"
+          - "Expone los recursos angular://project/summary y angular://rules"
+          - "Expone el prompt angular_plan_change"
+          - "Valida que toda ruta recibida resuelva dentro de la raiz del proyecto"
+        prompt: |
+          Lee docs/PLAN.md, secciones 6 Fase 4 y el riesgo R11, antes de
+          escribir nada.
+
+          Cablea el servidor MCP sobre stdio con el SDK oficial.
+
+          - server.ts: registra todas las herramientas de src/tools/ y de
+            src/rules/tools/, los recursos y el prompt. Capa fina, sin
+            logica de dominio.
+          - index.ts: entrada stdio. Todo log a stderr, nunca a stdout.
+          - resources/: angular://project/summary y angular://rules.
+          - prompts/: angular_plan_change, la plantilla que guia la secuencia
+            find_symbol, get_component, impact_of, find_similar, check_rules.
+
+          R11, seguridad: valida que cualquier path recibido resuelva dentro
+          de la raiz del proyecto. Sin shell: si en algun momento ejecutas un
+          proceso, spawn con argumentos como array. Sin acceso de red.
+
+      - id: "ground-truth"
+        name: "Grafo esperado de las fixtures"
+        max_turns: 140
+        role: "test"
+        complexity: "high"
+        dependencies: ["fixture-standalone", "fixture-ngmodule", "indexer"]
+        ownership:
+          - "fixtures/standalone-app/expected-graph.json"
+          - "fixtures/ngmodule-app/expected-graph.json"
+          - "packages/server/test/integration/**"
+        acceptance:
+          - "Los dos expected-graph.json estan escritos a mano desde el codigo de las fixtures"
+          - "La prueba de integracion compara por igualdad estructural ignorando orden"
+          - "Cualquier divergencia falla la prueba, no advierte"
+        prompt: |
+          Lee docs/PLAN.md, secciones 9.2 y 7 Fase 1, antes de escribir nada.
+
+          Escribe el ground truth de las dos fixtures LEYENDO SU CODIGO, no
+          ejecutando el indexador. El punto de un ground truth es ser
+          independiente de lo que se esta probando. Si lo generas con el
+          indexador, la prueba solo verifica que el indexador es consistente
+          consigo mismo.
+
+          Luego escribe la prueba de integracion que indexa cada fixture y
+          compara con su expected-graph.json por igualdad estructural,
+          ignorando el orden de nodos y aristas.
+
+          Reporta en tu resultado la precision y el recall que midas. El
+          criterio de salida de la Fase 1 es precision >= 95% y recall >= 90%.
+
+      - id: "review"
+        name: "Revision adversarial"
+        max_turns: 80
+        role: "review"
+        writes: false
+        complexity: "high"
+        dependencies: ["server-wiring", "ground-truth"]
+        verifiers: 2
+        acceptance:
+          - "Cada principio de la seccion 2 del plan se verifica contra el codigo real"
+          - "Se nombra cada incumplimiento con archivo y linea"
+        prompt: |
+          Lee docs/PLAN.md, seccion 2, antes de revisar.
+
+          Revisa el codigo construido contra los siete principios del plan.
+          En particular:
+
+          - P1: hay algun hecho estructural que se persista y no se pueda
+            rederivar del codigo.
+          - P2: hay alguna herramienta cuya salida no sea reproducible desde
+            el grafo, es decir que contenga juicio en vez de hechos.
+          - P4: hay algun lugar donde se adivine en vez de reportar unknown.
+          - P6: hay alguna herramienta que pueda devolver una respuesta sin
+            limite.
+          - R11: hay algun path que se use sin validar que caiga dentro de la
+            raiz.
+
+          Nombra cada incumplimiento con archivo y linea. No arregles nada:
+          eres de solo lectura. Si no encuentras incumplimientos de un
+          principio, dilo explicitamente en vez de omitirlo.
+
+      - id: "docs"
+        name: "README e instalacion"
+        max_turns: 60
+        role: "docs"
+        complexity: "low"
+        dependencies: ["server-wiring"]
+        ownership:
+          - "README.md"
+          - "docs/TOOLS.md"
+        acceptance:
+          - "El README explica que hace el servidor y como instalarlo en Claude Code y Cursor"
+          - "docs/TOOLS.md lista cada herramienta con entrada, salida y un ejemplo"
+          - "Al menos tres ejemplos de uso reales"
+        prompt: |
+          Lee docs/PLAN.md antes de escribir.
+
+          Actualiza README.md: que resuelve el servidor, como instalarlo en
+          Claude Code y en Cursor con el bloque de configuracion MCP, y un
+          ejemplo de sesion que muestre el beneficio.
+
+          Escribe docs/TOOLS.md: cada herramienta con su entrada, su salida y
+          un ejemplo real tomado de las fixtures.
+
+          No inventes herramientas que no existan en el codigo. Lee
+          packages/server/src/tools/ y src/rules/tools/ antes de documentar.
