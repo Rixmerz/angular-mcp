@@ -4,13 +4,13 @@
   </ul>
 </div>
 <ng-template #loadingBlock>
-  <p>Cargando...</p>
+  <p>Loading...</p>
 </ng-template>
 
 <div [ngSwitch]="status">
-  <p *ngSwitchCase="'ready'">Listo</p>
-  <p *ngSwitchCase="'loading'">Cargando</p>
+  <p *ngSwitchCase="'ready'">Ready</p>
+  <p *ngSwitchCase="'loading'">Loading</p>
   <p *ngSwitchDefault>Error</p>
 </div>
 
-<app-standalone-badge label="Hibrido"></app-standalone-badge>
+<app-standalone-badge label="Hybrid"></app-standalone-badge>

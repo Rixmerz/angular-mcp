@@ -83,4 +83,50 @@ describe('indexProject against the Angular CLI tsconfig layout', () => {
     expect(result.graph.nodesByKind('Service').length).toBeGreaterThan(0);
     expect(result.graph.nodesByKind('HttpCall').length).toBeGreaterThan(0);
   });
+
+  it('completes the plan\'s chain: every HTTP call reaches the registered interceptor', async () => {
+    const result = await indexFixture();
+
+    const interceptors = result.graph.nodesByKind('Interceptor');
+    expect(interceptors.map((node) => node.name)).toEqual(['authInterceptor']);
+
+    const httpCalls = result.graph.nodesByKind('HttpCall');
+    const intercepted = result.graph.allEdges().filter((edge) => edge.kind === 'intercepted_by');
+    expect(intercepted).toHaveLength(httpCalls.length);
+    expect(new Set(intercepted.map((edge) => edge.to))).toEqual(new Set([interceptors[0]?.id]));
+  });
+});
+
+describe('indexProject against the NgModule fixture', () => {
+  let cacheDir: string;
+
+  beforeEach(async () => {
+    cacheDir = await mkdtemp(join(tmpdir(), 'ngmodule-layout-cache-'));
+  });
+
+  afterEach(async () => {
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('resolves an interceptor registered through a barrel, which no import path can name (R16)', async () => {
+    const result = await indexProject({
+      root: join(process.cwd(), '..', '..', 'fixtures', 'ngmodule-app'),
+      typescript,
+      angularCompiler,
+      force: true,
+      cacheDir,
+    });
+
+    // app.module.ts registers it via `import { LoggingInterceptor } from './core'`,
+    // so joining the specifier yields "src/app/core.ts#LoggingInterceptor" —
+    // a node that does not exist. It resolves by name instead.
+    const interceptors = result.graph.nodesByKind('Interceptor');
+    expect(interceptors.map((node) => node.id)).toEqual([
+      'src/app/core/interceptors/logging.interceptor.ts#LoggingInterceptor',
+    ]);
+
+    const intercepted = result.graph.allEdges().filter((edge) => edge.kind === 'intercepted_by');
+    expect(intercepted).toHaveLength(1);
+    expect(intercepted[0]?.to).toBe('src/app/core/interceptors/logging.interceptor.ts#LoggingInterceptor');
+  });
 });
