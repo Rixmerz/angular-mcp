@@ -17,10 +17,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import * as angularCompiler from '@angular/compiler';
+import * as typescript from 'typescript';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { indexProject } from '../../src/indexer/index.js';
-import { resolveProjectDependencies } from '../../src/indexer/resolve.js';
 
 const FIXTURE_ROOT = join(process.cwd(), '..', '..', 'fixtures', 'standalone-app');
 
@@ -35,12 +36,18 @@ describe('indexProject against the Angular CLI tsconfig layout', () => {
     await rm(cacheDir, { recursive: true, force: true });
   });
 
+  /**
+   * Uses the server's own `typescript`/`@angular/compiler` rather than
+   * resolving them from the fixture: `fixtures/` is not a pnpm workspace
+   * member, so its `node_modules` is neither committed nor installed in CI.
+   * Resolving the compiler from the analyzed project (docs/PLAN.md 4.2, R1)
+   * is what `resolve.test.ts` covers; what this file pins is the file set.
+   */
   async function indexFixture() {
-    const deps = resolveProjectDependencies(FIXTURE_ROOT);
     return indexProject({
       root: FIXTURE_ROOT,
-      typescript: deps.typescript,
-      angularCompiler: deps.angularCompiler,
+      typescript,
+      angularCompiler,
       force: true,
       cacheDir,
     });
