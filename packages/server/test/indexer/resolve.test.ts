@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import ts from 'typescript';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { MissingDependencyError, resolveProjectDependencies } from '../../src/indexer/resolve.js';
@@ -14,7 +15,30 @@ const serverRequire = createRequire(join(process.cwd(), 'package.json'));
 /** Ruta real del paquete `typescript` instalado para el servidor (usada solo para symlinkear en fixtures). */
 const realTypescriptPackageDir = dirname(serverRequire.resolve('typescript/package.json'));
 
-const resolveModulePath = join(process.cwd(), 'src', 'indexer', 'resolve.ts');
+const resolveSourcePath = join(process.cwd(), 'src', 'indexer', 'resolve.ts');
+
+/**
+ * `resolve.ts` transpilado a JavaScript, una sola vez.
+ *
+ * El proceso hijo no puede importar el `.ts` directamente: el borrado de
+ * tipos nativo de Node existe desde la 22 y el paquete declara soportar la
+ * 20, donde importar un `.mts` muere con ERR_UNKNOWN_FILE_EXTENSION. Se
+ * transpila con el propio `typescript` que ya es devDependency, asi la
+ * prueba corre el codigo real en cualquier version soportada.
+ *
+ * Solo funciona porque `resolve.ts` importa unicamente builtins de Node mas
+ * un `import type`, que se borra.
+ */
+let transpiledResolveSource: string | undefined;
+
+function resolveModuleSource(): string {
+  if (transpiledResolveSource === undefined) {
+    transpiledResolveSource = ts.transpileModule(readFileSync(resolveSourcePath, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+  }
+  return transpiledResolveSource;
+}
 
 /**
  * Vitest ejecuta los tests bajo su propio runtime de modulos (vite-node),
@@ -33,7 +57,9 @@ interface ChildResolveResult {
 }
 
 function resolveInRealNodeProcess(projectRoot: string): ChildResolveResult {
-  const harnessPath = join(projectRoot, '.resolve-harness.mts');
+  const modulePath = join(projectRoot, '.resolve-module.mjs');
+  writeFileSync(modulePath, resolveModuleSource(), 'utf8');
+  const harnessPath = join(projectRoot, '.resolve-harness.mjs');
   const harnessSource = `
 import { pathToFileURL } from 'node:url';
 const [, , modulePath, target] = process.argv;
@@ -64,7 +90,7 @@ try {
   delete childEnv.NODE_PATH;
 
   return JSON.parse(
-    execFileSync(process.execPath, [harnessPath, resolveModulePath, projectRoot], {
+    execFileSync(process.execPath, [harnessPath, modulePath, projectRoot], {
       encoding: 'utf8',
       env: childEnv,
     }),
