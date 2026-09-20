@@ -1,22 +1,20 @@
 /**
- * Extractor de decoradores de clase. Ver docs/PLAN.md, secciones 5.1 y 9.1.
+ * Class decorator extractor. See docs/PLAN.md, sections 5.1 and 9.1.
  *
- * Recorre un `ts.SourceFile` buscando clases decoradas con `@Component`,
- * `@Directive`, `@Pipe` o `@Injectable` (todas importadas de
- * `@angular/core`, con alias respetado) y emite un nodo por cada una, con
- * los atributos de la tabla 5.1. Una clase sin ninguno de estos decoradores
- * no produce nodo.
+ * Walks a `ts.SourceFile` looking for classes decorated with `@Component`,
+ * `@Directive`, `@Pipe` or `@Injectable` (all imported from `@angular/core`,
+ * honoring aliases) and emits one node per class, with the attributes listed in
+ * table 5.1. A class with none of these decorators produces no node.
  *
- * `inputs`/`outputs` cubren ambos estilos de declaracion: el decorador
- * (`@Input()`/`@Output()`) y la funcion basada en signals (`input()`,
- * `input.required()`, `model()`, `output()`), reutilizando `extractSignals`
- * para esta ultima en vez de reimplementar su deteccion.
+ * `inputs`/`outputs` cover both declaration styles: the decorator
+ * (`@Input()`/`@Output()`) and the signal-based functions (`input()`,
+ * `input.required()`, `model()`, `output()`), reusing `extractSignals` for the
+ * latter instead of reimplementing its detection.
  *
- * Puro: no importa `typescript` a nivel de modulo (recibe el modulo del
- * proyecto analizado como parametro, igual que el resto de extractors) y no
- * toca el filesystem. La resolucion de `templateUrl`/`styleUrl(s)` a una
- * ruta es una heuristica de posicion de archivo, nunca se verifica contra
- * disco.
+ * Pure: it does not import `typescript` at module level (the analyzed project's
+ * module is passed in as a parameter, like in every other extractor) and it
+ * never touches the filesystem. Resolving `templateUrl`/`styleUrl(s)` to a path
+ * is a file-location heuristic and is never checked against disk.
  */
 
 import { posix } from 'node:path';
@@ -55,10 +53,10 @@ const LIFECYCLE_HOOK_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
-// Utilidades de bajo nivel (imports, decoradores, propiedades de objeto)
+// Low-level helpers (imports, decorators, object properties)
 // ---------------------------------------------------------------------------
 
-/** Mapa de nombre local -> nombre importado, para imports nombrados de `moduleName`. */
+/** Map of local name -> imported name, for named imports from `moduleName`. */
 function collectNamedImports(
   typescript: typeof TS,
   sourceFile: TS.SourceFile,
@@ -83,7 +81,7 @@ function collectNamedImports(
   return imports;
 }
 
-/** Busca, entre los decoradores de `node`, el que resuelve a `importedName` via `coreImports`. */
+/** Finds, among the decorators of `node`, the one that resolves to `importedName` via `coreImports`. */
 function findDecoratorCall(
   typescript: typeof TS,
   node: TS.Node,
@@ -105,7 +103,7 @@ function findDecoratorCall(
   return undefined;
 }
 
-/** Primer argumento del decorador, si es un objeto literal (metadata de Angular). */
+/** First decorator argument, when it is an object literal (the Angular metadata). */
 function getDecoratorMetadata(typescript: typeof TS, decorator: TS.Decorator): TS.ObjectLiteralExpression | undefined {
   const expr = decorator.expression;
   if (!typescript.isCallExpression(expr)) return undefined;
@@ -140,13 +138,13 @@ function readBooleanLiteral(typescript: typeof TS, expr: TS.Expression | undefin
   return undefined;
 }
 
-/** Resuelve `templateUrl`/`styleUrl(s)` (relativos al archivo del componente) a una ruta del proyecto. */
+/** Resolves `templateUrl`/`styleUrl(s)` (relative to the component file) to a project path. */
 function resolveSiblingPath(componentFilePath: string, relativeSpecifier: string): string {
   return normalizeRelativePath(posix.normalize(posix.join(posix.dirname(componentFilePath), relativeSpecifier)));
 }
 
 // ---------------------------------------------------------------------------
-// @Input() / @Output() (estilo decorador)
+// @Input() / @Output() (decorator style)
 // ---------------------------------------------------------------------------
 
 function extractInputDecoratorBinding(
@@ -222,7 +220,7 @@ function extractDecoratorBindings(
   return { inputs, outputs };
 }
 
-/** Agrega los bindings basados en signal (`input`, `output`, `model`) a `inputs`/`outputs`. */
+/** Adds the signal-based bindings (`input`, `output`, `model`) to `inputs`/`outputs`. */
 function mergeSignalBindings(
   signalsForClass: readonly SignalNode[],
   inputs: InputBinding[],
@@ -239,7 +237,7 @@ function mergeSignalBindings(
     } else if (signalNode.signalKind === 'output') {
       outputs.push({ name: signalNode.name, typeText: signalNode.typeText, isSignal: true });
     } else if (signalNode.signalKind === 'model') {
-      // `model()` es simultaneamente Input y Output (two-way binding), ver docs Angular.
+      // `model()` is both an Input and an Output at once (two-way binding), see the Angular docs.
       inputs.push({
         name: signalNode.name,
         typeText: signalNode.typeText,
@@ -252,7 +250,7 @@ function mergeSignalBindings(
 }
 
 // ---------------------------------------------------------------------------
-// Lifecycle hooks y host bindings
+// Lifecycle hooks and host bindings
 // ---------------------------------------------------------------------------
 
 function extractLifecycleHooks(typescript: typeof TS, classDeclaration: TS.ClassDeclaration): readonly string[] {
@@ -533,13 +531,13 @@ function extractServiceNode(
 }
 
 // ---------------------------------------------------------------------------
-// Punto de entrada
+// Entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Extrae los nodos `Component`, `Directive`, `Pipe` y `Service` declarados en
- * `sourceFile`. `relativePath` es la ruta relativa a la raiz del proyecto
- * analizado (ver `NodeId` en graph/model.ts).
+ * Extracts the `Component`, `Directive`, `Pipe` and `Service` nodes declared in
+ * `sourceFile`. `relativePath` is the path relative to the root of the analyzed
+ * project (see `NodeId` in graph/model.ts).
  */
 export function extractDecorators(
   typescript: typeof TS,

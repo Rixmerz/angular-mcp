@@ -1,27 +1,28 @@
 /**
- * Extractor de inyeccion de dependencias. Ver docs/PLAN.md, secciones 5.2 y 9.1.
+ * Dependency injection extractor. See docs/PLAN.md, sections 5.2 and 9.1.
  *
- * Recorre un `ts.SourceFile` buscando, en cada clase, dos mecanismos de
- * inyeccion (ver tabla 5.2, arista `injects`):
+ * Walks a `ts.SourceFile` looking, in every class, for two injection
+ * mechanisms (see table 5.2, the `injects` edge):
  *
- *  1. Por constructor: cada parametro del constructor cuyo tipo (o el token
- *     de un `@Inject(TOKEN)`) resuelve a un simbolo.
- *  2. Por `inject()`: cada campo de clase inicializado con `inject(TOKEN)`.
+ *  1. Constructor injection: every constructor parameter whose type (or the
+ *     token of an `@Inject(TOKEN)`) resolves to a symbol.
+ *  2. `inject()`: every class field initialized with `inject(TOKEN)`.
  *
- * `@Optional()` (constructor) e `inject(TOKEN, { optional: true })` marcan
- * `optional: true` en la arista. `@Inject(TOKEN)` reemplaza el tipo
- * declarado del parametro por el token explicito, que es lo que realmente se
- * inyecta en tiempo de ejecucion.
+ * `@Optional()` (constructor) and `inject(TOKEN, { optional: true })` set
+ * `optional: true` on the edge. `@Inject(TOKEN)` replaces the parameter's
+ * declared type with the explicit token, which is what is actually injected at
+ * runtime.
  *
- * La resolucion de un nombre a `NodeId` nunca usa el type checker (solo AST
- * del propio archivo), igual que `routes.ts`: una clase/interfaz/tipo/const
- * declarada en el mismo archivo es `certain`; un import relativo es
- * `inferred` (heuristica de posicion de archivo, nunca se verifica contra
- * disco); cualquier otra cosa (import de paquete, expresion compleja) cae a
- * `unknown` con un NodeId sintetico en el archivo actual, nunca se omite la
- * arista ni se inventa una ruta (R3, R7).
+ * Resolving a name to a `NodeId` never uses the type checker (only the AST of
+ * the file itself), just like `routes.ts`: a class/interface/type/const
+ * declared in the same file is `certain`; a relative import is `inferred` (a
+ * file-location heuristic, never checked against disk); anything else (a
+ * package import, a complex expression) falls back to `unknown` with a
+ * synthetic NodeId in the current file. The edge is never dropped and a path is
+ * never invented (R3, R7).
  *
- * Puro: no importa `typescript` a nivel de modulo, no toca el filesystem.
+ * Pure: it does not import `typescript` at module level and never touches the
+ * filesystem.
  */
 
 import type * as TS from 'typescript';
@@ -31,7 +32,7 @@ import type { Confidence, InjectsEdge, NodeId, Provenance } from '../../graph/mo
 
 interface ImportBinding {
   readonly moduleSpecifier: string;
-  /** Nombre real exportado por el modulo origen (antes de un `as alias`). */
+  /** The real name exported by the source module (before any `as alias`). */
   readonly importedName: string;
 }
 
@@ -46,10 +47,10 @@ interface DiCtx {
 }
 
 // ---------------------------------------------------------------------------
-// Recoleccion: declaraciones locales, imports, decoradores
+// Collection: local declarations, imports, decorators
 // ---------------------------------------------------------------------------
 
-/** Nombres declarados a nivel de modulo (clase, interfaz, tipo, funcion, const/let/var). */
+/** Names declared at module level (class, interface, type, function, const/let/var). */
 function collectLocalDeclNames(typescript: typeof TS, sourceFile: TS.SourceFile): ReadonlySet<string> {
   const names = new Set<string>();
 
@@ -95,7 +96,7 @@ function collectImportDecls(typescript: typeof TS, sourceFile: TS.SourceFile): R
   return imports;
 }
 
-/** Mapa de nombre local -> nombre importado, para imports nombrados de `moduleName`. */
+/** Map of local name -> imported name, for named imports from `moduleName`. */
 function collectNamedImportsFromModule(
   typescript: typeof TS,
   sourceFile: TS.SourceFile,
@@ -158,7 +159,7 @@ function hasDecorator(
 }
 
 // ---------------------------------------------------------------------------
-// Resolucion de nombre -> NodeId
+// Name -> NodeId resolution
 // ---------------------------------------------------------------------------
 
 interface ResolvedTarget {
@@ -167,9 +168,9 @@ interface ResolvedTarget {
 }
 
 /**
- * Resuelve un especificador relativo (`./foo`, `../bar/baz`) a una ruta
- * relativa de archivo `.ts`, uniendola contra el directorio del archivo
- * actual. Nunca toca disco (no verifica que el archivo exista).
+ * Resolves a relative specifier (`./foo`, `../bar/baz`) to a relative `.ts`
+ * file path, joining it against the current file's directory. It never touches
+ * disk (it does not check that the file exists).
  */
 function resolveRelativeSpecifier(currentFilePath: string, specifier: string): string | undefined {
   if (!specifier.startsWith('.')) return undefined;
@@ -204,8 +205,8 @@ function resolveTypeName(name: string, ctx: DiCtx): ResolvedTarget {
   return { nodeId: makeNodeId(ctx.filePath, name), confidence: 'unknown' };
 }
 
-/** Resuelve el token inyectado: un identificador se trata como nombre de simbolo; cualquier otra
- * expresion (literal, property access, etc.) cae a `unknown` con su texto fuente como simbolo. */
+/** Resolves the injected token: an identifier is treated as a symbol name; any other
+ * expression (literal, property access, etc.) falls back to `unknown`, using its source text as the symbol. */
 function resolveExpressionTarget(typescript: typeof TS, expr: TS.Expression, ctx: DiCtx): ResolvedTarget {
   if (typescript.isIdentifier(expr)) return resolveTypeName(expr.text, ctx);
   const text = expr.getText(ctx.sourceFile);
@@ -218,7 +219,7 @@ function provenanceOf(ctx: DiCtx, node: TS.Node): Provenance {
 }
 
 // ---------------------------------------------------------------------------
-// Inyeccion por constructor
+// Constructor injection
 // ---------------------------------------------------------------------------
 
 function extractConstructorInjections(
@@ -266,7 +267,7 @@ function extractConstructorInjections(
 }
 
 // ---------------------------------------------------------------------------
-// Inyeccion por inject()
+// inject() injection
 // ---------------------------------------------------------------------------
 
 function readInjectOptionsOptional(typescript: typeof TS, optionsArg: TS.Expression | undefined): boolean {
@@ -322,13 +323,13 @@ function extractInjectCalls(
 }
 
 // ---------------------------------------------------------------------------
-// Punto de entrada
+// Entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Extrae las aristas `injects` de cada clase declarada en `sourceFile`,
- * combinando inyeccion por constructor e inyeccion por `inject()`.
- * `relativePath` es la ruta relativa a la raiz del proyecto analizado.
+ * Extracts the `injects` edges of every class declared in `sourceFile`,
+ * combining constructor injection and `inject()` injection. `relativePath` is
+ * the path relative to the root of the analyzed project.
  */
 export function extractInjections(
   typescript: typeof TS,

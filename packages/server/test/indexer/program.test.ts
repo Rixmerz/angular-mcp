@@ -49,7 +49,7 @@ describe('createProjectProgram', () => {
   it('throws a clear error when the tsconfig path does not exist', () => {
     expect(() =>
       createProjectProgram(typescript, join(projectRoot, 'does-not-exist.tsconfig.json')),
-    ).toThrow(/No se pudo leer/);
+    ).toThrow(/Could not read/);
   });
 
   it('throws a clear error when the tsconfig contains invalid options', async () => {
@@ -60,7 +60,7 @@ describe('createProjectProgram', () => {
     );
 
     expect(() => createProjectProgram(typescript, join(projectRoot, 'tsconfig.json'))).toThrow(
-      /Configuracion invalida/,
+      /Invalid configuration/,
     );
   });
 });

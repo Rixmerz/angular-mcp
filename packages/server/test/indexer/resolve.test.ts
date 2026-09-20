@@ -12,22 +12,22 @@ import { MissingDependencyError, resolveProjectDependencies } from '../../src/in
 
 const serverRequire = createRequire(join(process.cwd(), 'package.json'));
 
-/** Ruta real del paquete `typescript` instalado para el servidor (usada solo para symlinkear en fixtures). */
+/** Real path of the `typescript` package installed for the server (used only to symlink it into fixtures). */
 const realTypescriptPackageDir = dirname(serverRequire.resolve('typescript/package.json'));
 
 const resolveSourcePath = join(process.cwd(), 'src', 'indexer', 'resolve.ts');
 
 /**
- * `resolve.ts` transpilado a JavaScript, una sola vez.
+ * `resolve.ts` transpiled to JavaScript, once.
  *
- * El proceso hijo no puede importar el `.ts` directamente: el borrado de
- * tipos nativo de Node existe desde la 22 y el paquete declara soportar la
- * 20, donde importar un `.mts` muere con ERR_UNKNOWN_FILE_EXTENSION. Se
- * transpila con el propio `typescript` que ya es devDependency, asi la
- * prueba corre el codigo real en cualquier version soportada.
+ * The child process cannot import the `.ts` directly: Node's native type
+ * stripping only exists from 22 on, and the package declares support for
+ * 20, where importing an `.mts` dies with ERR_UNKNOWN_FILE_EXTENSION. It is
+ * transpiled with the same `typescript` that is already a devDependency, so
+ * the test runs the real code on any supported version.
  *
- * Solo funciona porque `resolve.ts` importa unicamente builtins de Node mas
- * un `import type`, que se borra.
+ * This only works because `resolve.ts` imports nothing but Node builtins
+ * plus an `import type`, which is erased.
  */
 let transpiledResolveSource: string | undefined;
 
@@ -41,11 +41,11 @@ function resolveModuleSource(): string {
 }
 
 /**
- * Vitest ejecuta los tests bajo su propio runtime de modulos (vite-node),
- * que ante un `MODULE_NOT_FOUND` real cae hacia atras a la resolucion del
- * propio servidor en vez de fallar. Eso enmascara justo el caso que estos
- * tests verifican ("no esta instalado"), asi que corremos la resolucion en
- * un proceso `node` real y aislado, contra el `resolve.ts` real.
+ * Vitest runs the tests under its own module runtime (vite-node), which on a
+ * real `MODULE_NOT_FOUND` falls back to the server's own resolution instead
+ * of failing. That masks exactly the case these tests verify ("it is not
+ * installed"), so we run the resolution in a real, isolated `node` process
+ * against the real `resolve.ts`.
  */
 interface ChildResolveResult {
   readonly ok: boolean;
@@ -103,10 +103,10 @@ async function linkRealTypescript(projectRoot: string): Promise<void> {
 }
 
 /**
- * Instala un `@angular/compiler` falso pero funcional (expone `VERSION`) con
- * una version deliberadamente distinta a la que usa el propio servidor
- * (18.x), para probar que la resolucion lee del proyecto analizado y no del
- * servidor.
+ * Installs a fake but working `@angular/compiler` (it exposes `VERSION`) with
+ * a version deliberately different from the one the server itself uses
+ * (18.x), to prove that resolution reads from the analyzed project and not
+ * from the server.
  */
 async function writeFakeAngularCompiler(projectRoot: string, version: string): Promise<void> {
   const [major, minor = '0', patch = '0'] = version.split('.');
@@ -194,7 +194,7 @@ describe('resolveProjectDependencies', () => {
 
     expect(result.ok).toBe(false);
     expect(result.name).toBe(MissingDependencyError.name);
-    expect(result.message).toMatch(/no parece tener Angular instalado/i);
+    expect(result.message).toMatch(/does not appear to have Angular installed/i);
   });
 
   it("throws a clear error when '@angular/compiler' does not export VERSION", async () => {
@@ -208,6 +208,6 @@ describe('resolveProjectDependencies', () => {
     );
     await writeFile(join(pkgDir, 'index.cjs'), 'exports.somethingElse = true;\n', 'utf8');
 
-    expect(() => resolveProjectDependencies(projectRoot)).toThrow(/no expone 'VERSION'/);
+    expect(() => resolveProjectDependencies(projectRoot)).toThrow(/does not expose 'VERSION'/);
   });
 });

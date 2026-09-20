@@ -1,12 +1,12 @@
 /**
- * Cache en disco del ProjectGraph, en `.angular-mcp/cache/`. Ver
- * docs/PLAN.md, seccion 4.1 (R2: el grafo se desincroniza del codigo).
+ * On-disk cache of the ProjectGraph, under `.angular-mcp/cache/`. See
+ * docs/PLAN.md, section 4.1 (R2: the graph drifts out of sync with the code).
  *
- * Principio P1: la cache es solo aceleracion, nunca la fuente de verdad.
- * Todo lo que persiste aqui se puede rederivar volviendo a indexar el
- * codigo. La invalidacion es por hash de archivo: si el hash de un archivo
- * cambio (o el esquema del cache cambio), la entrada correspondiente se
- * trata como obsoleta y se descarta, nunca se repara a mano.
+ * Principle P1: the cache is only an accelerator, never the source of truth.
+ * Everything persisted here can be rederived by reindexing the code.
+ * Invalidation is per-file by content hash: if a file's hash changed (or the
+ * cache schema changed), the matching entry is treated as stale and dropped —
+ * it is never patched by hand.
  */
 
 import { createHash } from 'node:crypto';
@@ -17,54 +17,54 @@ import type { GraphEdge, GraphNode } from './model.js';
 import { normalizeRelativePath } from './model.js';
 import type { ProjectGraph } from './index.js';
 
-/** Version del esquema de la cache. Cambia si `CacheFile` cambia de forma. */
+/** Cache schema version. Bump it whenever the shape of `CacheFile` changes. */
 export const CACHE_SCHEMA_VERSION = 1;
 
 export const DEFAULT_CACHE_DIR = '.angular-mcp/cache';
 export const CACHE_FILE_NAME = 'graph.json';
 
-/** Contenido serializado de la cache: nodos, aristas y el hash de cada archivo fuente. */
+/** Serialized cache contents: nodes, edges and the hash of every source file. */
 export interface CacheFile {
   readonly schemaVersion: number;
   readonly generatedAt: string;
-  /** Hash del contenido de cada archivo fuente indexado, por ruta relativa normalizada. */
+  /** Content hash of every indexed source file, keyed by normalized relative path. */
   readonly fileHashes: Readonly<Record<string, string>>;
   readonly nodes: readonly GraphNode[];
   readonly edges: readonly GraphEdge[];
 }
 
-/** Resultado de comparar los hashes cacheados contra los hashes actuales de disco. */
+/** Result of comparing the cached hashes against the current hashes on disk. */
 export interface StaleCheck {
-  /** Archivos cacheados cuyo hash ya no coincide con el contenido actual. */
+  /** Cached files whose hash no longer matches the current content. */
   readonly changed: readonly string[];
-  /** Archivos actuales sin entrada en la cache. */
+  /** Current files with no entry in the cache. */
   readonly added: readonly string[];
-  /** Archivos que estaban cacheados pero no aparecen entre los actuales. */
+  /** Files that were cached but no longer appear among the current ones. */
   readonly removed: readonly string[];
-  /** Archivos cuyo hash coincide: seguros de reusar de la cache. */
+  /** Files whose hash matches: safe to reuse from the cache. */
   readonly unchanged: readonly string[];
 }
 
-/** true si no hay ninguna diferencia: la cache esta completamente al dia. */
+/** true when there is no difference at all: the cache is fully up to date. */
 export function isFresh(check: StaleCheck): boolean {
   return check.changed.length === 0 && check.added.length === 0 && check.removed.length === 0;
 }
 
-/** Hash de contenido, usado tanto para archivos en disco como en pruebas. */
+/** Content hash, used both for files on disk and in tests. */
 export function hashContent(content: string | Buffer): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
-/** Hash del contenido actual de un archivo en disco. */
+/** Hash of the current content of a file on disk. */
 export async function hashFile(absolutePath: string): Promise<string> {
   const content = await readFile(absolutePath);
   return hashContent(content);
 }
 
 /**
- * Compara los hashes guardados en una cache contra los hashes actuales de
- * los archivos del proyecto. Pura: no toca disco, para que sea trivial de
- * testear sin fixtures en el filesystem.
+ * Compares the hashes stored in a cache against the current hashes of the
+ * project files. Pure: it never touches disk, so it is trivial to test without
+ * filesystem fixtures.
  */
 export function diffFileHashes(
   cachedHashes: Readonly<Record<string, string>>,
@@ -110,7 +110,7 @@ function isCacheFile(value: unknown): value is CacheFile {
 }
 
 /**
- * Lee y escribe la cache de un `ProjectGraph` en `<projectRoot>/<cacheDir>/graph.json`.
+ * Reads and writes a `ProjectGraph` cache at `<projectRoot>/<cacheDir>/graph.json`.
  */
 export class GraphCache {
   private readonly cacheFilePath: string;
@@ -124,10 +124,10 @@ export class GraphCache {
   }
 
   /**
-   * Lee la cache de disco. Devuelve `undefined` si no existe, si el JSON es
-   * invalido, o si su `schemaVersion` no coincide con la version actual: una
-   * cache de un esquema viejo se trata como inexistente, nunca se migra a
-   * mano (P1).
+   * Reads the cache from disk. Returns `undefined` if it does not exist, if the
+   * JSON is invalid, or if its `schemaVersion` does not match the current one:
+   * a cache written under an older schema is treated as missing and is never
+   * migrated by hand (P1).
    */
   async read(): Promise<CacheFile | undefined> {
     let raw: string;
@@ -151,7 +151,7 @@ export class GraphCache {
     return parsed;
   }
 
-  /** Serializa el grafo completo junto con el hash de cada archivo indexado. */
+  /** Serializes the whole graph together with the hash of every indexed file. */
   async write(graph: ProjectGraph, fileHashes: ReadonlyMap<string, string>): Promise<void> {
     const data: CacheFile = {
       schemaVersion: CACHE_SCHEMA_VERSION,
@@ -167,14 +167,14 @@ export class GraphCache {
     await writeFile(this.cacheFilePath, JSON.stringify(data), 'utf8');
   }
 
-  /** Lee la cache y la compara contra los hashes actuales. `undefined` si no hay cache utilizable. */
+  /** Reads the cache and compares it against the current hashes. `undefined` when no usable cache exists. */
   async checkStale(currentHashes: ReadonlyMap<string, string>): Promise<StaleCheck | undefined> {
     const cached = await this.read();
     if (!cached) return undefined;
     return diffFileHashes(cached.fileHashes, currentHashes);
   }
 
-  /** Carga los nodos y aristas de una entrada de cache dentro de un `ProjectGraph`. */
+  /** Loads the nodes and edges of a cache entry into a `ProjectGraph`. */
   hydrate(graph: ProjectGraph, cached: CacheFile): void {
     graph.addNodes(cached.nodes);
     graph.addEdges(cached.edges);

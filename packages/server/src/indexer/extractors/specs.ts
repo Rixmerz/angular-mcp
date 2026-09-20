@@ -1,18 +1,18 @@
 /**
- * Extractor de specs. Ver docs/PLAN.md, seccion 5.1.
+ * Spec extractor. See docs/PLAN.md, section 5.1.
  *
- * Asocia un archivo `*.spec.ts` a los simbolos que prueba combinando dos
- * senales, ambas necesarias (nunca se adivina el simbolo probado a partir
- * solo del nombre del archivo):
+ * Associates a `*.spec.ts` file with the symbols it tests by combining two
+ * signals, both required (the symbol under test is never guessed from the file
+ * name alone):
  *
- *  1. Convencion de nombre: `foo.service.spec.ts` prueba (solo) lo que se
- *     importa desde `./foo.service` (quitar el sufijo `.spec.ts`).
- *  2. Los imports del propio spec: los nombres importados desde ese modulo
- *     son los simbolos probados.
+ *  1. Naming convention: `foo.service.spec.ts` tests (only) what is imported
+ *     from `./foo.service` (drop the `.spec.ts` suffix).
+ *  2. The spec's own imports: the names imported from that module are the
+ *     symbols under test.
  *
- * Un import de cualquier otro modulo (un modelo, un helper de test) no
- * cuenta como simbolo probado. Emite un nodo `Spec` y una arista
- * `tested_by: Symbol -> Spec` por cada simbolo asociado.
+ * An import from any other module (a model, a test helper) does not count as a
+ * symbol under test. Emits one `Spec` node and one `tested_by: Symbol -> Spec`
+ * edge per associated symbol.
  */
 
 import { posix } from 'node:path';
@@ -29,12 +29,12 @@ function getProvenance(sourceFile: TS.SourceFile, node: TS.Node, path: string): 
   return { file: path, line: line + 1, column: character + 1 };
 }
 
-/** `foo.service.spec.ts` -> `foo.service`. Si no termina en `.spec.ts`, se deja tal cual. */
+/** `foo.service.spec.ts` -> `foo.service`. Left untouched when it does not end in `.spec.ts`. */
 function stripSpecSuffix(path: string): string {
   return path.endsWith(SPEC_SUFFIX) ? path.slice(0, -SPEC_SUFFIX.length) : path;
 }
 
-/** Resuelve un module specifier relativo (`./foo`, `../bar/foo`) contra el directorio del spec. */
+/** Resolves a relative module specifier (`./foo`, `../bar/foo`) against the spec's directory. */
 function resolveRelativeModulePath(specDir: string, specifier: string): string {
   return normalizeRelativePath(posix.normalize(posix.join(specDir, specifier)));
 }
@@ -66,8 +66,8 @@ export interface SpecExtractionResult {
 }
 
 /**
- * Extrae el nodo `Spec` y las aristas `tested_by` de un archivo `*.spec.ts`.
- * `relativePath` es la ruta relativa a la raiz del proyecto analizado.
+ * Extracts the `Spec` node and the `tested_by` edges of a `*.spec.ts` file.
+ * `relativePath` is the path relative to the root of the analyzed project.
  */
 export function extractSpec(typescript: typeof TS, sourceFile: TS.SourceFile, relativePath: string): SpecExtractionResult {
   const path = normalizeRelativePath(relativePath);

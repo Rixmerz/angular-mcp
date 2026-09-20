@@ -1,20 +1,20 @@
 /**
- * Tope de tamano para respuestas markdown. Ver docs/PLAN.md, seccion 6 y
- * riesgo R6: "Tope de 8 KB por defecto" para que una respuesta grande no
- * reproduzca el problema de contexto que el servidor existe para resolver.
+ * Size cap for markdown responses. See docs/PLAN.md, section 6 and risk R6:
+ * "8 KB cap by default", so that a large response does not recreate the very
+ * context problem this server exists to solve.
  *
- * Solo aplica a markdown: JSON es la forma completa "solo bajo peticion"
- * (seccion 6) y no se trunca aqui.
+ * It applies to markdown only: JSON is the full shape, "only on request"
+ * (section 6), and is never truncated here.
  */
 
 export const MAX_MARKDOWN_BYTES = 8 * 1024;
 
 export interface TruncateContext {
-  /** Cuantos elementos quedaron en el texto renderizado antes de truncar. */
+  /** How many items the rendered text contained before truncation. */
   readonly shownCount: number;
-  /** Total de elementos disponibles (antes de truncar), no solo los de la pagina. */
+  /** Total number of available items (before truncation), not just this page's. */
   readonly totalCount: number;
-  /** `next_offset` de la paginacion, si hay mas paginas; null si no. */
+  /** The pagination `next_offset` if more pages exist; null otherwise. */
   readonly nextOffset: number | null;
 }
 
@@ -24,9 +24,8 @@ export interface TruncateResult {
 }
 
 /**
- * Trunca `text` a `maxBytes` (por defecto 8 KB) si hace falta, dejando
- * espacio para un aviso que declara el truncado y explica como pedir el
- * resto.
+ * Truncates `text` to `maxBytes` (8 KB by default) when needed, leaving room
+ * for a notice that states the truncation and explains how to request the rest.
  */
 export function truncateMarkdown(
   text: string,
@@ -48,17 +47,17 @@ function buildTruncationNotice(context: TruncateContext, maxBytes: number): stri
   const remaining = Math.max(0, context.totalCount - context.shownCount);
   const howToContinue =
     context.nextOffset !== null
-      ? `Pide el resto con \`offset=${context.nextOffset}\` (o reduce \`limit\`).`
-      : 'Reduce el alcance de la consulta, o usa `format: "json"` para obtener la forma completa sin resumir.';
+      ? `Request the rest with \`offset=${context.nextOffset}\` (or lower \`limit\`).`
+      : 'Narrow the query, or use `format: "json"` to get the full, unsummarized shape.';
 
   return (
-    `\n\n> Respuesta truncada a ${Math.round(maxBytes / 1024)} KB: ` +
-    `se muestran ${context.shownCount} de ${context.totalCount} elementos ` +
-    `(${remaining} sin mostrar en este bloque). ${howToContinue}`
+    `\n\n> Response truncated to ${Math.round(maxBytes / 1024)} KB: ` +
+    `showing ${context.shownCount} of ${context.totalCount} items ` +
+    `(${remaining} not shown in this block). ${howToContinue}`
   );
 }
 
-/** Corta `text` a lo sumo `maxBytes` en UTF-8, sin partir un caracter ni una linea a la mitad. */
+/** Cuts `text` down to at most `maxBytes` in UTF-8, without splitting a character or a line. */
 function cutToByteBudget(text: string, maxBytes: number): string {
   if (maxBytes <= 0) {
     return '';

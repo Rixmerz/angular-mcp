@@ -1,20 +1,19 @@
 /**
- * Extractor de estado reactivo. Ver docs/PLAN.md, secciones 5.1 y 9.1.
+ * Reactive state extractor. See docs/PLAN.md, sections 5.1 and 9.1.
  *
- * Recorre un `ts.SourceFile` y emite un nodo `Signal` por cada campo de
- * clase inicializado con `signal`, `computed`, `linkedSignal`, `input`
- * (incluido `input.required`), `model`, `output`, `viewChild`,
- * `viewChildren`, `contentChild`, `contentChildren`, `toSignal`, `resource`
- * o `httpResource`; y un nodo `Observable` por cada campo cuyo tipo
- * declarado (anotacion o `new X()`) sea `Observable`, `Subject` o
- * `BehaviorSubject`.
+ * Walks a `ts.SourceFile` and emits one `Signal` node per class field
+ * initialized with `signal`, `computed`, `linkedSignal`, `input` (including
+ * `input.required`), `model`, `output`, `viewChild`, `viewChildren`,
+ * `contentChild`, `contentChildren`, `toSignal`, `resource` or `httpResource`;
+ * and one `Observable` node per field whose declared type (an annotation or a
+ * `new X()`) is `Observable`, `Subject` or `BehaviorSubject`.
  *
- * No sigue el flujo de RxJS a traves de `pipe`/`switchMap` (fuera de
- * alcance de v1, ver seccion 13). `typeText` e `initialValueText` son el
- * texto tal como aparece en el codigo: nunca se evalua ni se interpreta.
+ * It does not follow RxJS flow through `pipe`/`switchMap` (out of scope for v1,
+ * see section 13). `typeText` and `initialValueText` are the text exactly as it
+ * appears in the code: it is never evaluated nor interpreted.
  *
- * Recibe el modulo `typescript` ya resuelto (igual que `program.ts`): debe
- * ser siempre el `typescript` del proyecto analizado, no el del servidor.
+ * It receives the already-resolved `typescript` module (like `program.ts`): it
+ * must always be the analyzed project's `typescript`, not the server's.
  */
 
 import type * as TS from 'typescript';
@@ -22,7 +21,7 @@ import type * as TS from 'typescript';
 import { makeNodeId, normalizeRelativePath } from '../../graph/model.js';
 import type { ObservableNode, SignalKind, SignalNode } from '../../graph/model.js';
 
-/** Nombres reconocidos, importados desde cualquier paquete `@angular/*`. */
+/** Recognized names, imported from any `@angular/*` package. */
 const SIGNAL_KIND_BY_ANGULAR_NAME: Readonly<Record<string, SignalKind>> = {
   signal: 'signal',
   computed: 'computed',
@@ -41,7 +40,7 @@ const SIGNAL_KIND_BY_ANGULAR_NAME: Readonly<Record<string, SignalKind>> = {
 
 const OBSERVABLE_TYPE_NAMES = new Set(['Observable', 'Subject', 'BehaviorSubject']);
 
-/** Mapa de nombre local -> nombre importado, solo para imports de `@angular/*`. */
+/** Map of local name -> imported name, for `@angular/*` imports only. */
 function collectAngularImports(typescript: typeof TS, sourceFile: TS.SourceFile): ReadonlyMap<string, string> {
   const imports = new Map<string, string>();
 
@@ -68,8 +67,8 @@ interface ResolvedAngularCall {
 }
 
 /**
- * Resuelve la llamada `foo(...)` o `foo.required(...)` a su nombre
- * importado desde `@angular/*`, si el identificador raiz proviene de ahi.
+ * Resolves the call `foo(...)` or `foo.required(...)` to the name it was
+ * imported under from `@angular/*`, when the root identifier comes from there.
  */
 function resolveAngularCallee(
   typescript: typeof TS,
@@ -100,10 +99,10 @@ function getCallTypeArgText(call: TS.CallExpression, sourceFile: TS.SourceFile):
 }
 
 /**
- * Texto del valor inicial, tal como aparece en el codigo. Para `toSignal`
- * el primer argumento es el observable, no un valor; ahi se busca en su
- * lugar la propiedad `initialValue` del objeto de opciones (segundo
- * argumento), si existe.
+ * Text of the initial value, exactly as it appears in the code. For `toSignal`
+ * the first argument is the observable, not a value; there it looks instead for
+ * the `initialValue` property of the options object (second argument), when
+ * present.
  */
 function computeInitialValueText(
   typescript: typeof TS,
@@ -162,7 +161,7 @@ function tryExtractSignal(
   };
 }
 
-/** Texto del tipo `Observable`/`Subject`/`BehaviorSubject` declarado, si lo hay. */
+/** Text of the declared `Observable`/`Subject`/`BehaviorSubject` type, when there is one. */
 function getObservableTypeText(
   typescript: typeof TS,
   member: TS.PropertyDeclaration,
@@ -216,9 +215,9 @@ function tryExtractObservable(
 }
 
 /**
- * Extrae los nodos `Signal` y `Observable` declarados en los campos de
- * clase de `sourceFile`. `relativePath` es la ruta relativa a la raiz del
- * proyecto analizado (ver `NodeId` en graph/model.ts).
+ * Extracts the `Signal` and `Observable` nodes declared in the class fields of
+ * `sourceFile`. `relativePath` is the path relative to the root of the analyzed
+ * project (see `NodeId` in graph/model.ts).
  */
 export function extractSignals(
   typescript: typeof TS,

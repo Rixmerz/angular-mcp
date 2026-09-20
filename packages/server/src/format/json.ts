@@ -1,7 +1,7 @@
 /**
- * Renderizado JSON: la forma completa, para procesamiento. Ver
- * docs/PLAN.md, seccion 6 ("JSON completo solo bajo peticion"). A
- * diferencia de markdown, no se trunca ni se resume.
+ * JSON rendering: the full shape, meant for programmatic processing. See
+ * docs/PLAN.md, section 6 ("full JSON only on request"). Unlike markdown, it is
+ * never truncated nor summarized.
  */
 
 import type { Page, Pagination } from './paginate.js';

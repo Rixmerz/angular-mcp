@@ -1,10 +1,11 @@
 /**
- * Carga del workspace del proyecto analizado. Ver docs/PLAN.md, seccion 4.2.
+ * Workspace loading for the analyzed project. See docs/PLAN.md, section 4.2.
  *
- * Detecta la raiz del proyecto, lee `angular.json` cuando existe y expone
- * cada proyecto del workspace con su `sourceRoot` y su `tsconfig`. Si no hay
- * `angular.json` (proyecto Angular sin CLI, o no-Angular), degrada a buscar
- * un `tsconfig.json` en la raiz y lo reporta como tal en `kind`.
+ * Detects the project root, reads `angular.json` when present and exposes every
+ * workspace project with its `sourceRoot` and its `tsconfig`. When there is no
+ * `angular.json` (an Angular project without the CLI, or a non-Angular one), it
+ * falls back to looking for a `tsconfig.json` at the root and reports that in
+ * `kind`.
  */
 
 import { access, readFile } from 'node:fs/promises';
@@ -17,18 +18,18 @@ export type WorkspaceKind = 'angular-cli' | 'tsconfig-only';
 export interface WorkspaceProject {
   readonly name: string;
   readonly projectType: string;
-  /** Ruta relativa a la raiz del workspace. */
+  /** Path relative to the workspace root. */
   readonly root: string;
-  /** Ruta relativa a la raiz del workspace, si angular.json la declara. */
+  /** Path relative to the workspace root, when angular.json declares it. */
   readonly sourceRoot?: string;
-  /** Ruta absoluta al tsconfig del proyecto, si se pudo determinar. */
+  /** Absolute path to the project's tsconfig, when it could be determined. */
   readonly tsConfigPath?: string;
 }
 
 export interface Workspace {
   readonly root: string;
   readonly kind: WorkspaceKind;
-  /** Ruta absoluta a angular.json o tsconfig.json, segun `kind`. `undefined` si no se encontro ninguno. */
+  /** Absolute path to angular.json or tsconfig.json, depending on `kind`. `undefined` when neither was found. */
   readonly configPath?: string;
   readonly projects: readonly WorkspaceProject[];
 }
@@ -43,8 +44,9 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 /**
- * Sube desde `startDir` buscando `angular.json` o, si no hay, `package.json`.
- * Lanza si llega a la raiz del filesystem sin encontrar ninguno.
+ * Walks up from `startDir` looking for `angular.json` or, failing that,
+ * `package.json`. Throws if it reaches the filesystem root without finding
+ * either.
  */
 export async function findWorkspaceRoot(startDir: string): Promise<string> {
   let dir = resolvePath(startDir);
@@ -56,8 +58,8 @@ export async function findWorkspaceRoot(startDir: string): Promise<string> {
     const parent = dirname(dir);
     if (parent === dir) {
       throw new Error(
-        `No se encontro "angular.json" ni "package.json" subiendo desde "${startDir}". ` +
-          'Corre el indexer dentro de un workspace de Angular o de un proyecto Node valido.',
+        `Could not find "angular.json" or "package.json" walking up from "${startDir}". ` +
+          'Run the indexer inside an Angular workspace or a valid Node project.',
       );
     }
     dir = parent;
@@ -80,7 +82,7 @@ interface RawAngularJson {
   readonly projects?: Record<string, RawAngularProject>;
 }
 
-/** Orden de preferencia al buscar el tsconfig "principal" de un proyecto. */
+/** Preference order when looking for a project's "main" tsconfig. */
 const TSCONFIG_TARGET_PRIORITY = ['build', 'test', 'lint'];
 
 function findTsConfigOption(project: RawAngularProject): string | undefined {
@@ -141,8 +143,9 @@ async function loadTsConfigOnlyWorkspace(root: string): Promise<Workspace> {
 }
 
 /**
- * Carga el workspace en `root`: si hay `angular.json`, expone sus proyectos
- * (soporta varios). Si no, degrada a buscar un `tsconfig.json` en la raiz.
+ * Loads the workspace at `root`: when `angular.json` exists, exposes its
+ * projects (several are supported). Otherwise it falls back to looking for a
+ * `tsconfig.json` at the root.
  */
 export async function loadWorkspace(root: string): Promise<Workspace> {
   const absoluteRoot = resolvePath(root);

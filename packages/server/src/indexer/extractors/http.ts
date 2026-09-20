@@ -1,27 +1,26 @@
 /**
- * Extractor de llamadas HTTP. Ver docs/PLAN.md, seccion 5.1 y riesgo R3.
+ * HTTP call extractor. See docs/PLAN.md, section 5.1 and risk R3.
  *
- * Recorre un `ts.SourceFile` buscando campos de clase que sean instancias de
- * `HttpClient` (via `inject(HttpClient)`, anotacion de tipo `HttpClient` o
- * parametro de constructor `private http: HttpClient`), y llamadas
- * `this.<campo>.get|post|put|patch|delete(...)` sobre esos campos. Por cada
- * llamada emite un nodo `HttpCall` y una arista `calls_http` desde la clase
- * que la contiene.
+ * Walks a `ts.SourceFile` looking for class fields that are `HttpClient`
+ * instances (via `inject(HttpClient)`, an `HttpClient` type annotation, or a
+ * constructor parameter `private http: HttpClient`), and for
+ * `this.<field>.get|post|put|patch|delete(...)` calls on those fields. For each
+ * call it emits an `HttpCall` node and a `calls_http` edge from the enclosing
+ * class.
  *
- * R3 es explicito: cobertura parcial de llamadas HTTP es aceptable, inventar
- * una URL no lo es. `urlConfidence` distingue:
- *  - 'literal': un string literal o template sin sustituciones.
- *  - 'template': un template literal, una concatenacion con `+`, o una
- *    referencia a `environment.*` o a una constante `export const` del mismo
- *    archivo, siempre que TODAS las partes involucradas sean resolubles de
- *    forma estatica.
- *  - 'unknown': cualquier otra cosa (identificador local no exportado,
- *    llamada a metodo, parametro de funcion, etc.). En ese caso `urlPattern`
- *    es el texto fuente original, nunca un valor inventado.
+ * R3 is explicit: partial coverage of HTTP calls is acceptable, inventing a URL
+ * is not. `urlConfidence` distinguishes:
+ *  - 'literal': a string literal, or a template with no substitutions.
+ *  - 'template': a template literal, a `+` concatenation, or a reference to
+ *    `environment.*` or to an `export const` constant of the same file, as long
+ *    as ALL the parts involved can be resolved statically.
+ *  - 'unknown': anything else (a local identifier that is not exported, a
+ *    method call, a function parameter, etc.). In that case `urlPattern` is the
+ *    original source text, never a made-up value.
  *
- * `requestTypeText` (cuerpo de post/put/patch) y `responseTypeText`
- * (primer generico de la llamada) son, igual que en `signals.ts`, texto tal
- * como aparece en el codigo: nunca se evalua ni se interpreta un tipo.
+ * `requestTypeText` (the body of post/put/patch) and `responseTypeText` (the
+ * call's first type argument) are, as in `signals.ts`, the text exactly as it
+ * appears in the code: a type is never evaluated nor interpreted.
  */
 
 import type * as TS from 'typescript';
@@ -37,7 +36,7 @@ function getProvenance(sourceFile: TS.SourceFile, node: TS.Node, path: string): 
   return { file: path, line: line + 1, column: character + 1 };
 }
 
-/** Mapa de nombre local -> nombre importado, para imports nombrados de `moduleName`. */
+/** Map of local name -> imported name, for named imports from `moduleName`. */
 function collectNamedImports(
   typescript: typeof TS,
   sourceFile: TS.SourceFile,
@@ -69,7 +68,7 @@ function findLocalName(imports: ReadonlyMap<string, string>, importedName: strin
   return undefined;
 }
 
-/** Texto raiz de una cadena de property access, p.ej. `environment` en `environment.api.url`. */
+/** Root text of a property access chain, e.g. `environment` in `environment.api.url`. */
 function getRootIdentifierText(typescript: typeof TS, expr: TS.Expression): string | undefined {
   let current: TS.Expression = expr;
   while (typescript.isPropertyAccessExpression(current)) {
@@ -79,12 +78,11 @@ function getRootIdentifierText(typescript: typeof TS, expr: TS.Expression): stri
 }
 
 /**
- * Intenta resolver el valor de texto de una expresion por evaluacion
- * estatica limitada (R3): literales, templates y concatenaciones cuyas
- * partes sean a su vez resolubles, `environment.*`, y referencias a
- * constantes `export const` del mismo archivo. Cualquier otra cosa
- * (parametros, variables locales, llamadas a metodos) devuelve `undefined`:
- * nunca se inventa un valor.
+ * Tries to resolve the text value of an expression through limited static
+ * evaluation (R3): literals, templates and concatenations whose parts are
+ * themselves resolvable, `environment.*`, and references to `export const`
+ * constants of the same file. Anything else (parameters, local variables,
+ * method calls) returns `undefined`: a value is never invented.
  */
 function tryResolveStaticText(
   typescript: typeof TS,
@@ -129,7 +127,7 @@ function tryResolveStaticText(
   return undefined;
 }
 
-/** `export const NAME = ...` de nivel superior, resueltas por evaluacion estatica limitada. */
+/** Top-level `export const NAME = ...` declarations, resolved by limited static evaluation. */
 function collectExportedConstants(typescript: typeof TS, sourceFile: TS.SourceFile): ReadonlyMap<string, string> {
   const constants = new Map<string, string>();
 
@@ -190,7 +188,7 @@ function isHttpClientTypeNode(
   );
 }
 
-/** Campos de `classDeclaration` que son instancias de `HttpClient`. */
+/** Fields of `classDeclaration` that are `HttpClient` instances. */
 function collectHttpClientFieldNames(
   typescript: typeof TS,
   classDeclaration: TS.ClassDeclaration,
@@ -242,7 +240,7 @@ interface HttpClientCallMatch {
   readonly methodName: string;
 }
 
-/** `this.<campo>.<metodo>(...)` donde `<campo>` es un campo HttpClient conocido. */
+/** `this.<field>.<method>(...)` where `<field>` is a known HttpClient field. */
 function matchHttpClientCall(
   typescript: typeof TS,
   call: TS.CallExpression,
@@ -272,9 +270,9 @@ function isFunctionLikeWithParams(typescript: typeof TS, node: TS.Node): node is
 }
 
 /**
- * Nombre del metodo/constructor/accessor que contiene `node`, buscando hacia
- * arriba sin cruzar el limite de la clase. `undefined` si no hay uno (campo
- * inicializado directamente, caso raro para una llamada HTTP).
+ * Name of the method/constructor/accessor that contains `node`, searching
+ * upwards without crossing the class boundary. `undefined` when there is none
+ * (a directly initialized field, a rare case for an HTTP call).
  */
 function findEnclosingMemberName(typescript: typeof TS, node: TS.Node): string | undefined {
   let current: TS.Node | undefined = node.parent;
@@ -299,10 +297,10 @@ function findEnclosingMemberName(typescript: typeof TS, node: TS.Node): string |
 }
 
 /**
- * Tipo declarado del parametro `paramName` en la funcion/metodo que contiene
- * `node` (o en uno de sus contenedores, sin cruzar el limite de la clase).
- * Evaluacion estatica limitada: solo lee la anotacion de tipo tal como esta
- * escrita, nunca infiere un tipo.
+ * Declared type of the parameter `paramName` in the function/method that
+ * contains `node` (or in one of its enclosing scopes, without crossing the
+ * class boundary). Limited static evaluation: it only reads the type annotation
+ * as written, it never infers a type.
  */
 function findEnclosingParamTypeText(
   typescript: typeof TS,
@@ -390,8 +388,8 @@ export interface HttpExtractionResult {
 }
 
 /**
- * Extrae los nodos `HttpCall` y las aristas `calls_http` de `sourceFile`.
- * `relativePath` es la ruta relativa a la raiz del proyecto analizado.
+ * Extracts the `HttpCall` nodes and the `calls_http` edges of `sourceFile`.
+ * `relativePath` is the path relative to the root of the analyzed project.
  */
 export function extractHttpCalls(
   typescript: typeof TS,
