@@ -21,31 +21,6 @@ nodes:
 
     '
   tasks:
-  - id: extract-decorators-di
-    name: Extractor de decoradores e inyeccion en TypeScript
-    max_turns: 120
-    role: backend
-    complexity: high
-    ownership:
-    - packages/server/src/indexer/extractors/decorators.ts
-    - packages/server/src/indexer/extractors/di.ts
-    - packages/server/src/indexer/extractors/modules.ts
-    - packages/server/test/indexer/decorators.test.ts
-    - packages/server/test/indexer/di.test.ts
-    - packages/server/test/indexer/modules.test.ts
-    acceptance:
-    - Extrae Component, Directive, Pipe, Injectable y NgModule con sus atributos
-    - Detecta inyeccion por constructor y por inject()
-    - Cubre @Optional, @Inject(TOKEN) e inject(TOKEN, {optional:true})
-    - Las pruebas unitarias de la seccion 9.1 del plan pasan
-    prompt: "Lee docs/PLAN.md, secciones 5.1, 5.2 y 9.1, antes de escribir nada.\n\nImplementa tres extractors.\
-      \ Cada uno recibe un ts.SourceFile y el\ntype checker, y emite nodos y aristas del modelo de\npackages/server/src/graph/model.ts.\
-      \ Son funciones puras.\n\n- decorators.ts: Component, Directive, Pipe, Injectable con todos\n  los\
-      \ atributos de la tabla 5.1. Distingue standalone de declarado\n  en modulo. Resuelve templateUrl\
-      \ relativo al archivo.\n- di.ts: aristas injects. Constructor y inject(). Cubre @Optional,\n  @Inject(TOKEN),\
-      \ inject(TOKEN, {optional:true}) e InjectionToken.\n- modules.ts: NgModule con declarations, imports,\
-      \ exports,\n  providers, y las aristas provides e imports.\n\nCada arista con provenance y confidence.\
-      \ Lo que no puedas resolver\nes confidence 'unknown', nunca una suposicion.\n"
   - id: extract-templates
     name: Extractor de templates en TypeScript
     max_turns: 140
@@ -72,13 +47,13 @@ nodes:
       \  del NgModule que lo declara. El caso hibrido, un standalone\n  importado desde un NgModule, debe\
       \ funcionar. Lo que no resuelvas\n  es confidence 'unknown'.\n\nEl tipo de cada binding sale de\
       \ la clase del componente via el\ntype checker de TypeScript. NO uses TemplateTypeChecker.\n"
+    timeout_s: 2700
   - id: indexer
     name: Orquestador del indice en TypeScript
     max_turns: 120
     role: backend
     complexity: high
     dependencies:
-    - extract-decorators-di
     - extract-templates
     ownership:
     - packages/server/src/indexer/index.ts
@@ -96,6 +71,7 @@ nodes:
       \ y cachea.\n- incremental.ts: compara hashes, reindexa solo lo cambiado,\n  invalida las aristas\
       \ que salian de los archivos afectados.\n\nDevuelve un resumen: nodos por tipo, archivos, tiempo,\
       \ errores de\nparseo. Un archivo que falla se registra y se sigue.\n"
+    timeout_s: 2400
   - id: query-tools
     name: Herramientas de consulta e impacto en TypeScript
     max_turns: 150
@@ -123,6 +99,7 @@ nodes:
       \ completo y, si reciben un\nnombre ambiguo, devuelven los candidatos en vez de elegir.\n\nR7: cada\
       \ hecho sale con su confidence y su proveniencia. La\ndescripcion de cada herramienta dice explicitamente\
       \ que campos\npueden venir inferidos.\n"
+    timeout_s: 2700
   - id: rules-engine
     name: Motor de reglas de arquitectura en TypeScript
     max_turns: 150
@@ -153,6 +130,7 @@ nodes:
       \ y angular_explain_layer.\nVan en src/tools/, pero coordinate: ese directorio es de\nquery-tools.\
       \ Escribe las tuyas en src/rules/tools/ y exportalas\npara que el cableado del servidor las registre.\n\
       \nEscribe docs/RULES.md documentando el formato con ejemplos.\n"
+    timeout_s: 2700
   - id: server-wiring
     name: Cableado del servidor MCP en TypeScript
     max_turns: 100
@@ -181,6 +159,7 @@ nodes:
       \ get_component, impact_of, find_similar, check_rules.\n\nR11, seguridad: valida que cualquier path\
       \ recibido resuelva dentro\nde la raiz del proyecto. Sin shell: si en algun momento ejecutas un\n\
       proceso, spawn con argumentos como array. Sin acceso de red.\n"
+    timeout_s: 1800
   - id: ground-truth
     name: Grafo esperado de las fixtures
     max_turns: 140
@@ -222,6 +201,7 @@ nodes:
       criterio de salida de la Fase 1 es precision >= 95% y recall >= 90%.
 
       '
+    timeout_s: 2400
   - id: review
     name: Revision adversarial
     max_turns: 80
@@ -243,6 +223,7 @@ nodes:
       \ sin\n  limite.\n- R11: hay algun path que se use sin validar que caiga dentro de la\n  raiz.\n\
       \nNombra cada incumplimiento con archivo y linea. No arregles nada:\neres de solo lectura. Si no\
       \ encuentras incumplimientos de un\nprincipio, dilo explicitamente en vez de omitirlo.\n"
+    timeout_s: 1800
   - id: docs
     name: README e instalacion
     max_turns: 60
@@ -277,3 +258,4 @@ nodes:
       packages/server/src/tools/ y src/rules/tools/ antes de documentar.
 
       '
+    timeout_s: 1200
