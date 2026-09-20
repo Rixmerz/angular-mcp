@@ -1,10 +1,12 @@
 # angular-mcp
 
-Servidor MCP que expone el grafo semantico de un proyecto Angular como
-herramientas de consulta. El plan completo esta en `docs/PLAN.md`.
+An MCP server that exposes the semantic graph of an Angular project as query
+tools. The full plan lives in `docs/PLAN.md`.
 
-## Convenciones
+## Conventions
 
-- TypeScript estricto, ESM, Node >= 20.
-- El servidor es determinista: devuelve hechos derivados del codigo, no juicio.
-- Cada hecho lleva confianza y proveniencia.
+- Strict TypeScript, ESM, Node >= 20.
+- The server is deterministic: it returns facts derived from the code, not
+  judgement.
+- Every fact carries a confidence level and its provenance.
+- Code, comments, error messages and documentation are written in English.

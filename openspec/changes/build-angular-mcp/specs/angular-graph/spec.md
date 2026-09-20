@@ -1,90 +1,92 @@
-# Grafo semantico de Angular
+# Angular semantic graph
 
 ## ADDED Requirements
 
-### Requirement: Extraccion del grafo desde el codigo
+### Requirement: Graph extraction from source
 
-El servidor DEBE derivar cada hecho estructural del codigo fuente en cada
-consulta, y NO DEBE persistir como verdad ningun hecho que no pueda rederivar.
-La cache existe solo como aceleracion y se invalida por hash de archivo.
+The server SHALL derive every structural fact from the source code on each
+query, and SHALL NOT persist as truth any fact it cannot re-derive. The cache
+exists only as an accelerator and is invalidated by file hash.
 
-#### Scenario: Un archivo cambia fuera del servidor
+#### Scenario: A file changes outside the server
 
-- **WHEN** un componente se edita sin pasar por el servidor
-- **THEN** la siguiente consulta detecta el hash distinto, reindexa ese archivo
-  y devuelve el estado nuevo, sin requerir que nadie actualice el grafo a mano
+- **WHEN** a component is edited without going through the server
+- **THEN** the next query detects the different hash, reindexes that file and
+  returns the new state, without requiring anyone to update the graph by hand
 
-#### Scenario: La cache esta vacia
+#### Scenario: The cache is empty
 
-- **WHEN** se consulta un proyecto que nunca fue indexado
-- **THEN** el servidor lo indexa y responde, en vez de fallar por falta de cache
+- **WHEN** a project that has never been indexed is queried
+- **THEN** the server indexes it and answers, rather than failing for lack of a
+  cache
 
-### Requirement: Confianza y proveniencia en cada hecho
+### Requirement: Confidence and provenance on every fact
 
-Cada nodo y cada arista DEBEN llevar el archivo, la linea y la columna de donde
-salieron, y un nivel de confianza entre certain, inferred y unknown. El servidor
-NO DEBE adivinar un valor que no pueda resolver.
+Every node and every edge SHALL carry the file, line and column it came from,
+and a confidence level among certain, inferred and unknown. The server SHALL NOT
+guess a value it cannot resolve.
 
-#### Scenario: Una URL construida dinamicamente
+#### Scenario: A dynamically built URL
 
-- **WHEN** un servicio llama a HttpClient con una URL que se arma en tiempo de
-  ejecucion y no se puede resolver estaticamente
-- **THEN** la llamada se registra con urlConfidence unknown y el texto original,
-  nunca con una URL inventada
+- **WHEN** a service calls HttpClient with a URL assembled at runtime that
+  cannot be resolved statically
+- **THEN** the call is recorded with urlConfidence unknown and the original
+  text, never with an invented URL
 
-#### Scenario: Un selector de template sin resolver
+#### Scenario: An unresolved template selector
 
-- **WHEN** un tag del template no corresponde a ningun componente en el scope
-- **THEN** la arista se emite con confidence unknown en vez de omitirse
+- **WHEN** a template tag matches no component in scope
+- **THEN** the edge is emitted with confidence unknown rather than omitted
 
-### Requirement: Resolucion del compilador del proyecto analizado
+### Requirement: Compiler resolution from the analyzed project
 
-El servidor DEBE resolver TypeScript y el compilador de Angular desde el
-node_modules del proyecto que analiza, no desde el suyo propio.
+The server SHALL resolve TypeScript and the Angular compiler from the
+node_modules of the project it analyzes, not from its own.
 
-#### Scenario: El proyecto usa una version mayor distinta
+#### Scenario: The project uses a different major version
 
-- **WHEN** el proyecto analizado usa una version de Angular distinta a la del
-  entorno del servidor
-- **THEN** los templates se parsean con el compilador del proyecto, y la version
-  detectada se reporta en el estado del indice
+- **WHEN** the analyzed project uses an Angular version different from the
+  server's environment
+- **THEN** templates are parsed with the project's compiler, and the detected
+  version is reported in the index status
 
-#### Scenario: El proyecto no tiene Angular instalado
+#### Scenario: The project has no Angular installed
 
-- **WHEN** falta @angular/compiler en el proyecto analizado
-- **THEN** el servidor falla con un mensaje que dice exactamente que instalar
+- **WHEN** @angular/compiler is missing from the analyzed project
+- **THEN** the server fails with a message stating exactly what to install
 
 ## ADDED Requirements
 
-### Requirement: Herramientas de consulta acotadas
+### Requirement: Bounded query tools
 
-Toda herramienta que liste DEBE aceptar un limite y devolver metadatos de
-paginacion, y NO DEBE devolver el grafo entero en una respuesta.
+Every listing tool SHALL accept a limit and return pagination metadata, and
+SHALL NOT return the whole graph in one response.
 
-#### Scenario: Un proyecto grande
+#### Scenario: A large project
 
-- **WHEN** se consultan los consumidores de un servicio muy usado
-- **THEN** la respuesta viene paginada con has_more y next_offset, y el markdown
-  se trunca declarando que se trunco
+- **WHEN** the consumers of a widely used service are queried
+- **THEN** the response is paginated with has_more and next_offset, and the
+  markdown is truncated while declaring that it was truncated
 
-#### Scenario: Un nombre de simbolo ambiguo
+#### Scenario: An ambiguous symbol name
 
-- **WHEN** dos componentes de un monorepo comparten el nombre
-- **THEN** la busqueda devuelve ambos candidatos con su ruta, en vez de elegir uno
+- **WHEN** two components in a monorepo share a name
+- **THEN** the search returns both candidates with their paths, instead of
+  picking one
 
-### Requirement: Verificacion de reglas de arquitectura
+### Requirement: Architecture rule verification
 
-El servidor DEBE evaluar un diff contra las reglas declaradas del repositorio y
-reportar cada violacion con la arista ofensora y una ruta permitida.
+The server SHALL evaluate a diff against the repository's declared rules and
+report each violation with the offending edge and an allowed path.
 
-#### Scenario: Un componente llama a HttpClient
+#### Scenario: A component calls HttpClient
 
-- **WHEN** un diff introduce una llamada HTTP directa en un componente y la regla
-  lo prohibe
-- **THEN** la verificacion reporta la violacion con archivo y linea, y sugiere la
-  ruta componente, servicio, repositorio
+- **WHEN** a diff introduces a direct HTTP call in a component and a rule
+  forbids it
+- **THEN** verification reports the violation with file and line, and suggests
+  the component, service, repository path
 
-#### Scenario: El repositorio ya usa otra herramienta de limites
+#### Scenario: The repository already uses another boundary tool
 
-- **WHEN** el proyecto tiene configuracion de sheriff o de limites de Nx
-- **THEN** el servidor la importa en vez de exigir que se duplique
+- **WHEN** the project has sheriff or Nx boundary configuration
+- **THEN** the server imports it instead of requiring it to be duplicated

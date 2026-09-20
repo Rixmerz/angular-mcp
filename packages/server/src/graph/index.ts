@@ -1,9 +1,9 @@
 /**
- * ProjectGraph: grafo tipado en memoria con indices por tipo de nodo, por
- * nombre y por archivo. Ver docs/PLAN.md, seccion 4.1.
+ * ProjectGraph: typed in-memory graph with indexes by node kind, by name and by
+ * file. See docs/PLAN.md, section 4.1.
  *
- * Es una estructura pasiva: no indexa codigo por si misma (eso es trabajo
- * del indexer), solo almacena y consulta lo que los extractors produjeron.
+ * It is a passive structure: it does not index code itself (that is the
+ * indexer's job), it only stores and queries what the extractors produced.
  */
 
 import type { EdgeKind, GraphEdge, GraphNode, NodeId, NodeKind } from './model.js';
@@ -12,23 +12,23 @@ import { normalizeRelativePath } from './model.js';
 export type TraversalDirection = 'out' | 'in' | 'both';
 
 export interface TraversalOptions {
-  /** Sentido del recorrido. Por defecto `'both'`. */
+  /** Traversal direction. Defaults to `'both'`. */
   readonly direction?: TraversalDirection;
   /**
-   * Profundidad maxima a explorar desde el nodo inicial. 0 devuelve solo el
-   * nodo inicial. Por defecto 5 — un recorrido siempre esta acotado (P6).
+   * Maximum depth to explore from the starting node. 0 returns only the
+   * starting node. Defaults to 5 — a traversal is always bounded (P6).
    */
   readonly maxDepth?: number;
-  /** Si se da, solo se siguen aristas de estos tipos. */
+  /** When given, only edges of these kinds are followed. */
   readonly edgeKinds?: readonly EdgeKind[];
 }
 
 export interface TraversalResult {
-  /** Nodos alcanzados, incluido el nodo inicial, en orden de descubrimiento. */
+  /** Nodes reached, including the starting node, in discovery order. */
   readonly nodes: GraphNode[];
-  /** Aristas efectivamente recorridas. */
+  /** Edges actually traversed. */
   readonly edges: GraphEdge[];
-  /** Profundidad a la que se alcanzo cada nodo. */
+  /** The depth at which each node was reached. */
   readonly depthOf: ReadonlyMap<NodeId, number>;
 }
 
@@ -37,7 +37,7 @@ const DEFAULT_MAX_DEPTH = 5;
 function assertValidNodeId(id: NodeId): void {
   if (!id.includes('#')) {
     throw new Error(
-      `NodeId invalido: "${id}". El identificador de nodo debe ser "ruta#simbolo", nunca solo el nombre.`,
+      `Invalid NodeId: "${id}". A node identifier must be "path#symbol", never just the name.`,
     );
   }
 }
@@ -52,7 +52,7 @@ export class ProjectGraph {
   private readonly indexByName = new Map<string, Set<NodeId>>();
   private readonly indexByFile = new Map<string, Set<NodeId>>();
 
-  /** Agrega o reemplaza un nodo. Idempotente: reindexar el mismo id lo actualiza. */
+  /** Adds or replaces a node. Idempotent: reindexing the same id updates it. */
   addNode(node: GraphNode): void {
     assertValidNodeId(node.id);
 
@@ -69,7 +69,7 @@ export class ProjectGraph {
     for (const node of nodes) this.addNode(node);
   }
 
-  /** Agrega una arista. Ambos extremos pueden resolverse despues de la arista. */
+  /** Adds an edge. Either endpoint may be resolved after the edge itself. */
   addEdge(edge: GraphEdge): void {
     this.edges.push(edge);
     this.pushIndexed(this.edgesByFrom, edge.from, edge);
@@ -104,44 +104,44 @@ export class ProjectGraph {
     return this.edges.length;
   }
 
-  /** Indice por tipo de nodo. */
+  /** Index by node kind. */
   nodesByKind(kind: NodeKind): GraphNode[] {
     const ids = this.indexByKind.get(kind);
     if (!ids) return [];
     return this.resolveAll(ids);
   }
 
-  /** Indice por nombre exacto de simbolo. */
+  /** Index by exact symbol name. */
   nodesByName(name: string): GraphNode[] {
     const ids = this.indexByName.get(name);
     if (!ids) return [];
     return this.resolveAll(ids);
   }
 
-  /** Indice por archivo de origen (ruta relativa normalizada). */
+  /** Index by source file (normalized relative path). */
   nodesByFile(path: string): GraphNode[] {
     const ids = this.indexByFile.get(normalizeRelativePath(path));
     if (!ids) return [];
     return this.resolveAll(ids);
   }
 
-  /** Aristas salientes de un nodo, opcionalmente filtradas por tipo. */
+  /** Outgoing edges of a node, optionally filtered by kind. */
   edgesFrom(id: NodeId, kind?: EdgeKind): GraphEdge[] {
     const list = this.edgesByFrom.get(id) ?? [];
     return kind ? list.filter((edge) => edge.kind === kind) : list.slice();
   }
 
-  /** Aristas entrantes de un nodo, opcionalmente filtradas por tipo. */
+  /** Incoming edges of a node, optionally filtered by kind. */
   edgesTo(id: NodeId, kind?: EdgeKind): GraphEdge[] {
     const list = this.edgesByTo.get(id) ?? [];
     return kind ? list.filter((edge) => edge.kind === kind) : list.slice();
   }
 
   /**
-   * Elimina todos los nodos y aristas derivados de un archivo. Se usa al
-   * reindexar incrementalmente: antes de volver a extraer un archivo hay que
-   * borrar lo que se deriva de su version anterior (evita R2: grafo
-   * desincronizado con simbolos que ya no existen).
+   * Removes every node and edge derived from a file. Used when reindexing
+   * incrementally: before re-extracting a file, whatever was derived from its
+   * previous version must be deleted (this avoids R2: a graph out of sync,
+   * holding symbols that no longer exist).
    */
   removeFile(path: string): void {
     const normalized = normalizeRelativePath(path);
@@ -154,7 +154,7 @@ export class ProjectGraph {
     this.indexByFile.delete(normalized);
   }
 
-  /** Elimina un nodo y toda arista que lo toque. */
+  /** Removes a node and every edge that touches it. */
   removeNode(id: NodeId): void {
     const node = this.nodesById.get(id);
     if (!node) return;
@@ -199,9 +199,8 @@ export class ProjectGraph {
   }
 
   /**
-   * Recorre el grafo desde `startId` en el sentido pedido, con limite de
-   * profundidad (P6: ninguna herramienta devuelve el grafo entero). BFS,
-   * protegido contra ciclos.
+   * Traverses the graph from `startId` in the requested direction, with a depth
+   * limit (P6: no tool ever returns the whole graph). BFS, cycle-safe.
    */
   traverse(startId: NodeId, options: TraversalOptions = {}): TraversalResult {
     const direction = options.direction ?? 'both';

@@ -21,7 +21,7 @@ import { StandaloneBadgeComponent } from './standalone-badge.component';
 export class GreetingModule {
   constructor(@Optional() @SkipSelf() parentModule: GreetingModule) {
     if (parentModule) {
-      throw new Error('GreetingModule ya esta cargado. Importalo solo desde el router.');
+      throw new Error('GreetingModule is already loaded. Import it only from the router.');
     }
   }
 }
