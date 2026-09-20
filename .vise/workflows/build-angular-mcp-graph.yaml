@@ -35,6 +35,7 @@ nodes:
         complexity: "high"
         ownership:
           - "packages/server/src/graph/**"
+          - "packages/server/test/graph/**"
         acceptance:
           - "Existen tipos para cada tipo de nodo y cada tipo de arista de la seccion 5 del plan"
           - "Cada arista lleva provenance y confidence"
@@ -73,79 +74,89 @@ nodes:
 
       - id: "fixture-standalone"
         name: "App fixture standalone"
-        max_turns: 150
         role: "frontend"
         complexity: "medium"
+        max_turns: 150
         ownership:
           - "fixtures/standalone-app/**"
         acceptance:
-          - "La app compila con ng build"
-          - "Incluye signals, control flow moderno, rutas lazy e interceptores funcionales"
-          - "Incluye un componente que ya implementa paginacion, para probar find_similar"
-          - "Incluye exactamente una violacion de arquitectura plantada"
+          - "Existe UserListComponent sin paginacion y OrderListComponent con paginacion del lado del servidor"
+          - "Existen UserService y OrderService que llaman a HttpClient"
+          - "Hay al menos una URL literal, una con template literal y una construida desde environment.apiUrl"
+          - "Se usan signal, computed, input, input.required, model, output, viewChild y toSignal en algun componente"
+          - "Algun template usa @if, @for, @switch, @defer y @let"
+          - "app.routes.ts usa loadComponent, loadChildren, children, un guard funcional y un resolver"
+          - "Existe un interceptor funcional registrado en app.config.ts"
+          - "Existen specs para al menos dos componentes y un servicio"
+          - "Existe exactamente un componente que llama a HttpClient directamente, documentado como violacion plantada"
         prompt: |
-          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
-          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
-          cero ni concluyas que ya esta listo: revisa cada criterio de
-          aceptacion contra el codigo real y escribe lo que falte.
+          IMPORTANTE: esta app ya esta empezada y es INCOMPLETA. Hoy solo
+          tiene el shell, los modelos y la configuracion. Tu trabajo es
+          completarla, no reescribirla ni declararla terminada.
 
           Lee docs/PLAN.md, secciones 7 Fase 0 y 9, antes de escribir nada.
+          Lee tambien fixtures/standalone-app/src/app/core/models/ para usar
+          los tipos que ya existen.
 
-          Crea una app Angular standalone minima pero representativa en
-          fixtures/standalone-app/. Angular 18 o superior.
+          Falta todo esto y cada punto es necesario porque una prueba del
+          indexador depende de el:
 
-          Debe contener, porque las pruebas dependen de ello:
-          - Componentes con signal, computed, input, input.required, model,
-            output, viewChild y toSignal.
-          - Templates con control flow @if, @for, @switch, @defer y @let,
+          - UserListComponent, sin paginacion. Es el objetivo del caso de uso
+            del plan.
+          - OrderListComponent, CON paginacion del lado del servidor. Es el
+            patron que la herramienta de busqueda de similares debe encontrar.
+          - UserService y OrderService con llamadas a HttpClient: una URL
+            literal, una con template literal y una construida desde
+            environment.apiUrl. Genericos en cada llamada.
+          - Estado reactivo: signal, computed, input, input.required, model,
+            output, viewChild y toSignal, repartidos entre los componentes.
+          - Templates que usen @if, @for, @switch, @defer y @let, ademas de
             interpolacion, property binding, event binding y two-way.
-          - Rutas con loadComponent, loadChildren, children, guards
-            funcionales y resolvers.
-          - Un interceptor funcional.
-          - Servicios con HttpClient: URL literal, template literal y una
-            construida desde environment.apiUrl.
-          - Specs .spec.ts para al menos dos componentes y un servicio.
-          - Un OrderListComponent que YA implementa paginacion del lado del
-            servidor. Es el patron que find_similar debe encontrar.
-          - Un UserListComponent sin paginacion, que es el objetivo del
-            caso de uso del plan.
-          - Exactamente UNA violacion plantada: un componente que llama a
-            HttpClient directamente. Documentala en un comentario.
+          - Rutas con loadComponent, loadChildren, children, un guard
+            funcional y un resolver.
+          - Un interceptor funcional registrado en app.config.ts.
+          - Specs para dos componentes y un servicio.
+          - EXACTAMENTE UNA violacion plantada: un componente que llama a
+            HttpClient directamente, con un comentario que lo declare.
 
           NO crees expected-graph.json. Esa es otra tarea.
 
       - id: "fixture-ngmodule"
         name: "App fixture NgModule"
-        max_turns: 150
         role: "frontend"
         complexity: "medium"
+        max_turns: 150
         ownership:
           - "fixtures/ngmodule-app/**"
         acceptance:
-          - "La app compila con ng build"
-          - "Usa NgModule, inyeccion por constructor y RouterModule"
-          - "Incluye un componente standalone importado desde un NgModule, para el caso hibrido"
+          - "Hay inyeccion por constructor con @Optional y con @Inject(TOKEN)"
+          - "Hay un feature module cargado con loadChildren clasico y RouterModule.forChild"
+          - "Algun template usa *ngIf, *ngFor y ngSwitch"
+          - "Existe un segundo feature module con sus propias declarations y providers"
+          - "Existen specs para al menos un componente y un servicio"
+          - "Se conserva el caso hibrido: un componente standalone importado desde un NgModule"
         prompt: |
-          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
-          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
-          cero ni concluyas que ya esta listo: revisa cada criterio de
-          aceptacion contra el codigo real y escribe lo que falte.
+          IMPORTANTE: esta app ya esta empezada y es INCOMPLETA. Ya tiene
+          core, shared, un feature, el interceptor de clase, el token, el
+          pipe, los barrels y el caso hibrido. NO los rehagas ni los rompas.
 
-          Lee docs/PLAN.md, riesgo R4, antes de escribir nada.
+          Lee docs/PLAN.md, riesgo R4, antes de escribir nada. Lee lo que ya
+          existe en fixtures/ngmodule-app/src/app/ antes de agregar nada.
 
-          Crea una app Angular de estilo NgModule en fixtures/ngmodule-app/.
+          Falta esto, y cada punto alimenta una prueba del indexador:
 
-          Debe contener:
-          - AppModule y al menos un feature module con declarations,
-            imports, exports y providers.
-          - Inyeccion por constructor, incluyendo @Optional y @Inject(TOKEN).
-          - RouterModule.forRoot y forChild, con loadChildren clasico.
-          - Directivas estructurales viejas: *ngIf, *ngFor, ngSwitch.
-          - Un pipe declarado en un modulo.
-          - Un interceptor de clase con HTTP_INTERCEPTORS.
-          - Un caso HIBRIDO: un componente standalone importado desde un
-            NgModule. Es el que mas rompe la resolucion de selectores.
-          - Barrels (index.ts) que reexportan, para el riesgo R16.
+          - Inyeccion por constructor con @Optional y con @Inject(TOKEN)
+            usando el token que ya existe en core/tokens/.
+          - Un segundo feature module, cargado con loadChildren clasico y
+            RouterModule.forChild, con sus propias declarations y providers.
+          - Templates que usen *ngIf, *ngFor y ngSwitch, que es lo que el
+            extractor de templates debe reconocer ademas del control flow
+            moderno de la otra fixture.
+          - Specs para al menos un componente y un servicio.
+
+          Conserva el componente standalone importado desde un NgModule: es
+          el caso que mas rompe la resolucion de selectores y el riesgo R4
+          depende de el.
 
       # ---------- Ola 2: carga del programa y extractors ----------
 
