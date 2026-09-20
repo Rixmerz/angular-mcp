@@ -70,6 +70,13 @@ export class ToolContext {
     return this.state;
   }
 
+  /** Full indexed state for `root`. Throws `NotIndexedError` (actionable) instead of returning `undefined`. */
+  requireIndexedState(root: string): IndexedState {
+    const state = this.getStateFor(root);
+    if (!state) throw new NotIndexedError(root);
+    return state;
+  }
+
   /** Graph for `root`. Throws `NotIndexedError` (actionable) instead of returning `undefined`. */
   requireGraph(root: string): ProjectGraph {
     const state = this.getStateFor(root);
