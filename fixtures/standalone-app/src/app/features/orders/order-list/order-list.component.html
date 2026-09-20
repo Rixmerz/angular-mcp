@@ -1,0 +1,38 @@
+<section>
+  <h2>Orders (page {{ currentPage() }} of {{ totalPages() }})</h2>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p>Loading orders...</p>
+    }
+    @case ('error') {
+      <p>Could not load orders.</p>
+    }
+    @case ('loaded') {
+      @let count = orders().length;
+      <p>{{ count }} order(s) on this page</p>
+      <ul>
+        @for (order of orders(); track order.id) {
+          <li>{{ order.reference }} &mdash; {{ order.total | number: '1.2-2' }}</li>
+        }
+      </ul>
+    }
+  }
+
+  @defer (on viewport) {
+    <div #paginator class="paginator">
+      <button type="button" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() <= 1">
+        Previous
+      </button>
+      <button
+        type="button"
+        (click)="goToPage(currentPage() + 1)"
+        [disabled]="currentPage() >= totalPages()"
+      >
+        Next
+      </button>
+    </div>
+  } @placeholder {
+    <div>Loading pagination controls...</div>
+  }
+</section>

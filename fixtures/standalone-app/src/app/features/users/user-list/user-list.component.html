@@ -1,0 +1,24 @@
+<section>
+  <h2>{{ pageTitle() }}</h2>
+
+  <input
+    type="search"
+    placeholder="Search users..."
+    [(ngModel)]="searchTerm"
+  />
+
+  @let total = filteredUsers().length;
+
+  @if (total > 0) {
+    <p>{{ total }} user(s) found</p>
+    <ul>
+      @for (user of filteredUsers(); track user.id) {
+        <li (click)="selectUser(user.id)">
+          {{ user.name }} &mdash; {{ user.email }}
+        </li>
+      }
+    </ul>
+  } @else {
+    <p>No users match "{{ searchTerm() }}"</p>
+  }
+</section>

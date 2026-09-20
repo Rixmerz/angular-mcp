@@ -1,56 +1,56 @@
 /**
- * Modelo de datos del grafo del proyecto. Ver docs/PLAN.md, seccion 5.
+ * Data model of the project graph. See docs/PLAN.md, section 5.
  *
- * Contrato para los extractors (packages/server/src/indexer/extractors/*):
- * cada extractor produce GraphNode[] y GraphEdge[] a partir de un
- * ts.SourceFile (o un template), sin efectos secundarios.
+ * Contract for the extractors (packages/server/src/indexer/extractors/*): each
+ * extractor produces GraphNode[] and GraphEdge[] from a ts.SourceFile (or a
+ * template), with no side effects.
  *
- * Principio P1 del plan: nada que no se pueda rederivar del codigo se
- * persiste como verdad. Estos tipos describen hechos derivados, nunca
- * estado editable a mano.
+ * Principle P1 of the plan: nothing that cannot be rederived from the code is
+ * persisted as truth. These types describe derived facts, never hand-editable
+ * state.
  */
 
 // ---------------------------------------------------------------------------
-// Identidad
+// Identity
 // ---------------------------------------------------------------------------
 
 /**
- * Identificador unico de un nodo: `ruta/relativa/al/archivo.ts#NombreSimbolo`.
- * Nunca solo el nombre (R13: varios `UserListComponent` en un monorepo es un
- * caso real). La ruta es siempre relativa a la raiz del proyecto analizado,
- * con separadores `/`.
+ * Unique identifier of a node: `relative/path/to/file.ts#SymbolName`. Never
+ * just the name (R13: several `UserListComponent` classes in one monorepo is a
+ * real case). The path is always relative to the root of the analyzed project,
+ * with `/` separators.
  */
 export type NodeId = string;
 
-/** Construye un NodeId a partir de una ruta relativa y un simbolo. */
+/** Builds a NodeId from a relative path and a symbol. */
 export function makeNodeId(relativePath: string, symbol: string): NodeId {
   const normalized = normalizeRelativePath(relativePath);
   if (symbol.length === 0) {
-    throw new Error(`makeNodeId: symbol vacio para "${normalized}"`);
+    throw new Error(`makeNodeId: empty symbol for "${normalized}"`);
   }
   return `${normalized}#${symbol}`;
 }
 
-/** Separa un NodeId en su ruta de archivo y su simbolo. */
+/** Splits a NodeId into its file path and its symbol. */
 export function parseNodeId(id: NodeId): { path: string; symbol: string } {
   const hashIndex = id.indexOf('#');
   if (hashIndex === -1) {
-    throw new Error(`NodeId invalido, falta "#ruta#simbolo": "${id}"`);
+    throw new Error(`Invalid NodeId, missing "#path#symbol": "${id}"`);
   }
   return { path: id.slice(0, hashIndex), symbol: id.slice(hashIndex + 1) };
 }
 
-/** Normaliza separadores de path a `/` y quita un `./` inicial. */
+/** Normalizes path separators to `/` and strips a leading `./`. */
 export function normalizeRelativePath(relativePath: string): string {
   const withForwardSlashes = relativePath.replace(/\\/g, '/');
   return withForwardSlashes.startsWith('./') ? withForwardSlashes.slice(2) : withForwardSlashes;
 }
 
 // ---------------------------------------------------------------------------
-// Proveniencia y confianza (P4, R7)
+// Provenance and confidence (P4, R7)
 // ---------------------------------------------------------------------------
 
-/** De donde salio un hecho: archivo, linea y columna, 1-based. */
+/** Where a fact came from: file, line and column, 1-based. */
 export interface Provenance {
   readonly file: string;
   readonly line: number;
@@ -58,13 +58,13 @@ export interface Provenance {
 }
 
 /**
- * Nivel de confianza de un hecho. Nunca se adivina: lo no resoluble es
- * `unknown`, nunca un valor inventado (R3, R7).
+ * Confidence level of a fact. Nothing is ever guessed: whatever cannot be
+ * resolved is `unknown`, never a made-up value (R3, R7).
  */
 export type Confidence = 'certain' | 'inferred' | 'unknown';
 
 // ---------------------------------------------------------------------------
-// Nodos — tabla 5.1
+// Nodes — table 5.1
 // ---------------------------------------------------------------------------
 
 export type NodeKind =
@@ -89,9 +89,9 @@ export type NodeKind =
 export interface NodeBase<K extends NodeKind = NodeKind> {
   readonly id: NodeId;
   readonly kind: K;
-  /** Ruta relativa del archivo del que se derivo el nodo. */
+  /** Relative path of the file the node was derived from. */
   readonly path: string;
-  /** Nombre del simbolo (o nombre sintetico para nodos sin simbolo TS). */
+  /** Symbol name (or a synthetic name for nodes with no TS symbol). */
   readonly name: string;
 }
 
@@ -102,7 +102,7 @@ export interface InputBinding {
   readonly alias?: string;
   readonly typeText?: string;
   readonly required: boolean;
-  /** true si se declaro con la funcion `input()`/`input.required()`, false si es `@Input()`. */
+  /** true when declared with the `input()`/`input.required()` function, false for `@Input()`. */
   readonly isSignal: boolean;
 }
 
@@ -110,7 +110,7 @@ export interface OutputBinding {
   readonly name: string;
   readonly alias?: string;
   readonly typeText?: string;
-  /** true si se declaro con la funcion `output()`, false si es `@Output()`. */
+  /** true when declared with the `output()` function, false for `@Output()`. */
   readonly isSignal: boolean;
 }
 
@@ -128,7 +128,7 @@ export interface ComponentNode extends NodeBase<'Component'> {
   readonly stylePaths: readonly string[];
   readonly inputs: readonly InputBinding[];
   readonly outputs: readonly OutputBinding[];
-  /** NodeId de los nodos Signal declarados por este componente. */
+  /** NodeIds of the Signal nodes declared by this component. */
   readonly signals: readonly NodeId[];
   readonly lifecycleHooks: readonly string[];
   readonly hostBindings: readonly string[];
@@ -155,7 +155,7 @@ export interface ServiceNode extends NodeBase<'Service'> {
 }
 
 export interface NgModuleNode extends NodeBase<'NgModule'> {
-  /** Especificadores tal como aparecen en el decorador; la verdad de grafo son las aristas. */
+  /** Specifiers exactly as they appear in the decorator; the edges are the graph's truth. */
   readonly declarations: readonly string[];
   readonly imports: readonly string[];
   readonly exports: readonly string[];
@@ -253,9 +253,9 @@ export interface ModelNode extends NodeBase<'Model'> {
 }
 
 /**
- * Clase generica no cubierta por otro tipo de nodo (por ejemplo una clase
- * base abstracta sin decorador). Existe para que la arista `extends` siempre
- * tenga un nodo destino, incluso cuando la clase no es un concepto Angular.
+ * A generic class not covered by another node kind (an abstract base class with
+ * no decorator, for example). It exists so the `extends` edge always has a
+ * target node, even when the class is not an Angular concept.
  */
 export interface ClassNode extends NodeBase<'Class'> {
   readonly isAbstract: boolean;
@@ -285,11 +285,11 @@ export type GraphNode =
   | ClassNode
   | FileNode;
 
-/** Nodos que representan un simbolo declarado (para la arista `tested_by`). */
+/** Nodes that represent a declared symbol (used by the `tested_by` edge). */
 export type SymbolNode = Exclude<GraphNode, FileNode | TemplateNode | RouteNode | HttpCallNode>;
 
 // ---------------------------------------------------------------------------
-// Aristas — tabla 5.2
+// Edges — table 5.2
 // ---------------------------------------------------------------------------
 
 export type EdgeKind =
@@ -322,7 +322,7 @@ export interface EdgeBase<K extends EdgeKind = EdgeKind> {
 /** `declares`: File -> Symbol */
 export type DeclaresEdge = EdgeBase<'declares'>;
 
-/** `injects`: Component|Directive|Service|Guard -> Service (constructor o inject()) */
+/** `injects`: Component|Directive|Service|Guard -> Service (constructor or inject()) */
 export interface InjectsEdge extends EdgeBase<'injects'> {
   readonly via: 'constructor' | 'inject';
   readonly optional: boolean;
@@ -337,7 +337,7 @@ export type ImportsEdge = EdgeBase<'imports'>;
 /** `renders`: Component -> Template */
 export type RendersEdge = EdgeBase<'renders'>;
 
-/** `uses_in_template`: Template -> Component|Directive|Pipe (por selector resuelto) */
+/** `uses_in_template`: Template -> Component|Directive|Pipe (by resolved selector) */
 export interface UsesInTemplateEdge extends EdgeBase<'uses_in_template'> {
   readonly selector: string;
 }
@@ -351,11 +351,11 @@ export type BindingKind =
   | 'attribute'
   | 'template-reference';
 
-/** `binds`: Template -> Signal|Observable|Method|Property (nombre + tipo de binding) */
+/** `binds`: Template -> Signal|Observable|Method|Property (member name + binding kind) */
 export interface BindsEdge extends EdgeBase<'binds'> {
   readonly bindingKind: BindingKind;
   readonly memberName: string;
-  /** A que clase de miembro apunta `to` cuando no existe un nodo Signal/Observable dedicado. */
+  /** Which kind of member `to` points at when no dedicated Signal/Observable node exists. */
   readonly targetKind: 'signal' | 'observable' | 'method' | 'property';
 }
 
@@ -379,7 +379,7 @@ export type ResolvesWithEdge = EdgeBase<'resolves_with'>;
 /** `calls_http`: Service|Component -> HttpCall */
 export type CallsHttpEdge = EdgeBase<'calls_http'>;
 
-/** `intercepted_by`: HttpCall -> Interceptor (si es global y detectable) */
+/** `intercepted_by`: HttpCall -> Interceptor (when global and detectable) */
 export type InterceptedByEdge = EdgeBase<'intercepted_by'>;
 
 /** `returns`: HttpCall -> Model */

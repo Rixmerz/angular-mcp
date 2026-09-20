@@ -1,75 +1,75 @@
-# Angular MCP — Plan de construcción
+# Angular MCP — Build plan
 
-> Estado: propuesta inicial. Este documento es el plan de trabajo, no una especificación cerrada.
-> Cada fase tiene criterios de salida explícitos; no se avanza a la siguiente sin cumplirlos.
+> Status: initial proposal. This document is the work plan, not a closed specification.
+> Every phase has explicit exit criteria; we do not move to the next one without meeting them.
 
 ---
 
-## 1. Problema y objetivo
+## 1. Problem and objective
 
-Un agente que trabaja sobre un proyecto Angular gasta la mayor parte de su contexto y
-de sus turnos reconstruyendo, en cada tarea, el mismo grafo de relaciones:
+An agent working on an Angular project spends most of its context and most of its turns
+rebuilding, on every task, the same graph of relationships:
 
 ```
 Component → Template → Signal/Observable → Service → DI → Interceptor → HTTP → Backend
 ```
 
-Además debe recordar convenciones del repositorio, rutas, contratos, lifecycle y tests
-asociados. Nada de eso cambia entre tareas, pero el agente lo redescubre cada vez.
+On top of that it has to remember repository conventions, routes, contracts, lifecycle and the
+associated tests. None of that changes between tasks, yet the agent rediscovers it every time.
 
-**Objetivo:** construir un servidor MCP que extraiga ese grafo del código de forma
-determinista y lo exponga mediante herramientas semánticas, de modo que el agente
-trabaje sobre conceptos (componente, servicio, ruta, contrato) y no sobre archivos.
+**Objective:** build an MCP server that extracts that graph from the code deterministically
+and exposes it through semantic tools, so that the agent works with concepts (component,
+service, route, contract) instead of files.
 
-**Resultado esperado:** para una tarea típica ("agrega paginación a usuarios"), el agente
-obtiene en una o dos llamadas el subgrafo afectado, los patrones existentes similares, los
-tests relevantes y las reglas de arquitectura aplicables, en lugar de leer diez archivos.
+**Expected result:** for a typical task ("add pagination to users"), the agent gets the affected
+subgraph, the existing similar patterns, the relevant tests and the applicable architecture
+rules in one or two calls, instead of reading ten files.
 
 ---
 
-## 2. Principios de diseño (no negociables)
+## 2. Design principles (non-negotiable)
 
-| # | Principio | Consecuencia práctica |
+| # | Principle | Practical consequence |
 |---|-----------|------------------------|
-| P1 | **Derivar, no recordar** | Todo hecho estructural sale del código en cada consulta (con cache por hash). El agente nunca "actualiza el grafo" a mano. |
-| P2 | **El MCP es determinista** | Devuelve hechos, subgrafos y coincidencias. No recomienda implementaciones; eso es trabajo del LLM. |
-| P3 | **Lectura antes que escritura** | Las herramientas de consulta e impacto llegan primero. Las mutaciones se habilitan solo cuando el grafo demuestre ser confiable. |
-| P4 | **Honestidad sobre cobertura** | Cada hecho lleva `confidence` y `provenance` (archivo:línea). Lo que no se puede inferir se reporta como `unknown`, nunca se adivina. |
-| P5 | **Usar el compilador, no reimplementarlo** | Metadata, DI y AST de templates vienen del propio `@angular/compiler` del proyecto analizado. |
-| P6 | **Respuestas acotadas** | Toda herramienta que lista soporta `limit`, `depth` y `format` (markdown/json). Nada devuelve el grafo entero. |
-| P7 | **Reglas declarativas y versionadas** | La arquitectura vive en un archivo en el repo del usuario, junto al código, no dentro del MCP. |
+| P1 | **Derive, don't remember** | Every structural fact comes out of the code on each query (with a hash-based cache). The agent never "updates the graph" by hand. |
+| P2 | **The MCP is deterministic** | It returns facts, subgraphs and matches. It does not recommend implementations; that is the LLM's job. |
+| P3 | **Reads before writes** | Query and impact tools come first. Mutations are enabled only once the graph has proven trustworthy. |
+| P4 | **Honesty about coverage** | Every fact carries `confidence` and `provenance` (file:line). Whatever cannot be inferred is reported as `unknown`, never guessed. |
+| P5 | **Use the compiler, don't reimplement it** | Metadata, DI and template ASTs come from the analyzed project's own `@angular/compiler`. |
+| P6 | **Bounded responses** | Every tool that lists supports `limit`, `depth` and `format` (markdown/json). Nothing returns the whole graph. |
+| P7 | **Declarative, versioned rules** | The architecture lives in a file in the user's repo, next to the code, not inside the MCP. |
 
 ---
 
-## 3. Alcance
+## 3. Scope
 
-### Dentro del alcance (v1)
+### In scope (v1)
 
-- Proyectos Angular **standalone** y **NgModule** (ambos desde el inicio; los proyectos reales son mixtos).
-- Workspaces Angular CLI (`angular.json`) con uno o varios proyectos.
-- Análisis estático: componentes, directivas, pipes, servicios, DI, signals, inputs/outputs,
-  bindings de template, rutas (incluyendo lazy), guards/resolvers, interceptores,
-  llamadas HTTP, specs asociados.
-- Reglas de arquitectura declarativas y verificación de un diff contra ellas.
-- Detección de patrones similares existentes (para "hazlo como ya se hace aquí").
-- Transporte **stdio** (uso local desde Claude Code, Cursor, etc.).
+- **standalone** and **NgModule** Angular projects (both from day one; real projects are mixed).
+- Angular CLI workspaces (`angular.json`) with one or several projects.
+- Static analysis: components, directives, pipes, services, DI, signals, inputs/outputs,
+  template bindings, routes (including lazy ones), guards/resolvers, interceptors,
+  HTTP calls, associated specs.
+- Declarative architecture rules and checking a diff against them.
+- Detection of existing similar patterns (for "do it the way it is already done here").
+- **stdio** transport (local use from Claude Code, Cursor, etc.).
 
-### Fuera del alcance (v1)
+### Out of scope (v1)
 
-- Runtime: errores en ejecución, tráfico de red, logs, builds en vivo. Requiere instrumentación
-  del proceso y es un proyecto aparte. Se deja un punto de extensión.
-- Mutaciones de alto nivel (`add_signal`, `bind_template`). Solo se evalúan en Fase 5, tras validar el grafo.
-- Otros frameworks (React, Svelte, Nest). El diseño del núcleo debe permitirlo, pero no se implementa.
-- Transporte HTTP remoto multi-cliente. Solo si aparece un caso de uso real.
-- Monorepos Nx con `project.json` sin `angular.json`: soporte básico en v1 (detección), completo en v2.
+- Runtime: execution errors, network traffic, logs, live builds. That requires instrumenting
+  the process and is a separate project. An extension point is left in place.
+- High-level mutations (`add_signal`, `bind_template`). They are only considered in Phase 5, after validating the graph.
+- Other frameworks (React, Svelte, Nest). The core design should allow it, but it is not implemented.
+- Remote multi-client HTTP transport. Only if a real use case shows up.
+- Nx monorepos with `project.json` and no `angular.json`: basic support in v1 (detection), full support in v2.
 
 ---
 
-## 4. Arquitectura
+## 4. Architecture
 
 ```
                          ┌────────────────────────────┐
-                         │        Cliente MCP         │
+                         │         MCP Client         │
                          │  (Claude Code, Cursor...)  │
                          └─────────────┬──────────────┘
                                        │ stdio (JSON-RPC)
@@ -83,20 +83,20 @@ tests relevantes y las reglas de arquitectura aplicables, en lugar de leer diez 
 ┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
 │   Query Engine   │        │   Rules Engine   │        │  Pattern Finder  │
 │ find / who_uses  │        │ layers, boundaries│        │ similar_to       │
-│ impact / routes  │        │ check diff        │        │ (estructural)    │
+│ impact / routes  │        │ check diff        │        │ (structural)     │
 └────────┬─────────┘        └────────┬─────────┘        └────────┬─────────┘
          │                           │                           │
          └───────────────────────────┼───────────────────────────┘
                                      ▼
                          ┌────────────────────────────┐
                          │        Project Graph       │
-                         │  nodos + aristas + prov.   │
-                         │  (memoria + cache en disco)│
+                         │  nodes + edges + prov.     │
+                         │  (memory + on-disk cache)  │
                          └─────────────┬──────────────┘
                                        │
                          ┌─────────────▼──────────────┐
                          │          Indexer           │
-                         │  extractors por concepto   │
+                         │  extractors per concept    │
                          └─────────────┬──────────────┘
                                        │
           ┌────────────────────────────┼────────────────────────────┐
@@ -104,112 +104,112 @@ tests relevantes y las reglas de arquitectura aplicables, en lugar de leer diez 
 ┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
 │ TypeScript API   │        │ @angular/compiler│        │ Config readers   │
 │ (ts.Program)     │        │ parseTemplate    │        │ angular.json,    │
-│ decoradores, DI, │        │ AST de template  │        │ tsconfig, rules, │
-│ inject(), signals│        │ bindings, @if/@for│       │ openapi (opc.)   │
+│ decorators, DI,  │        │ template AST     │        │ tsconfig, rules, │
+│ inject(), signals│        │ bindings, @if/@for│       │ openapi (opt.)   │
 └──────────────────┘        └──────────────────┘        └──────────────────┘
 ```
 
-### 4.1 Capas
+### 4.1 Layers
 
-**Indexer.** Conjunto de *extractors* independientes, uno por concepto. Cada extractor
-recibe un `ts.SourceFile` (o un template) y emite nodos y aristas con proveniencia.
-Son puros y testeables en aislamiento.
+**Indexer.** A set of independent *extractors*, one per concept. Each extractor takes a
+`ts.SourceFile` (or a template) and emits nodes and edges with provenance.
+They are pure and testable in isolation.
 
-**Project Graph.** Grafo tipado en memoria con índices por tipo de nodo, por nombre y
-por archivo. Se serializa a `.angular-mcp/cache/` con el hash de cada archivo fuente.
-Al arrancar, solo se reindexan los archivos cuyo hash cambió.
+**Project Graph.** A typed in-memory graph with indexes by node type, by name and
+by file. It is serialized to `.angular-mcp/cache/` along with each source file's hash.
+On startup, only the files whose hash changed are reindexed.
 
-**Query Engine.** Traduce las herramientas MCP a recorridos del grafo. Aplica `limit`,
-`depth` y formato de salida.
+**Query Engine.** Translates the MCP tools into graph traversals. Applies `limit`,
+`depth` and the output format.
 
-**Rules Engine.** Carga `angular-mcp.rules.yaml` del repositorio del usuario, la valida
-contra un esquema y evalúa aristas del grafo (o de un diff) contra ella.
+**Rules Engine.** Loads `angular-mcp.rules.yaml` from the user's repository, validates it
+against a schema and evaluates graph edges (or diff edges) against it.
 
-**Pattern Finder.** Dado un nodo, busca nodos estructuralmente similares (misma forma de
-dependencias, mismos tipos de estado, misma forma de llamada HTTP). No usa embeddings en v1;
-es comparación de firmas estructurales.
+**Pattern Finder.** Given a node, it looks for structurally similar nodes (same shape of
+dependencies, same kinds of state, same shape of HTTP call). It does not use embeddings in v1;
+it compares structural signatures.
 
-**Server.** Capa fina: registra herramientas con Zod, anotaciones y esquemas de salida.
-Sin lógica de dominio.
+**Server.** A thin layer: registers tools with Zod, annotations and output schemas.
+No domain logic.
 
-### 4.2 Decisión clave: usar el compilador del proyecto analizado
+### 4.2 Key decision: use the analyzed project's compiler
 
-El MCP **no** empaqueta su propia versión de `@angular/compiler`. Resuelve
-`@angular/compiler` y `typescript` desde el `node_modules` del proyecto analizado.
+The MCP does **not** bundle its own version of `@angular/compiler`. It resolves
+`@angular/compiler` and `typescript` from the analyzed project's `node_modules`.
 
-Razón: el parser de templates cambia entre versiones mayores (control flow `@if/@for`,
-`@defer`, `@let`, signal inputs). Usar una versión distinta a la del proyecto produce
-falsos errores de parseo o bindings mal resueltos.
+Reason: the template parser changes between major versions (`@if/@for` control flow,
+`@defer`, `@let`, signal inputs). Using a version different from the project's produces
+false parse errors or badly resolved bindings.
 
-Consecuencia: el MCP debe tolerar un rango de versiones (mínimo Angular 17) y tener una
-capa adaptadora por versión mayor. Ver riesgo R1.
+Consequence: the MCP has to tolerate a range of versions (Angular 17 minimum) and have an
+adapter layer per major version. See risk R1.
 
-### 4.3 Qué se usa del compilador y qué no
+### 4.3 What we use from the compiler and what we don't
 
-| Necesidad | Fuente | Estabilidad |
+| Need | Source | Stability |
 |-----------|--------|-------------|
-| Decoradores, clases, imports, `inject()`, signals | API pública de TypeScript (`ts.Program`, type checker) | Alta |
-| AST de templates y bindings | `parseTemplate` de `@angular/compiler` | Media-alta (público, cambia por versión mayor) |
-| Resolución de a qué componente pertenece un tag del template | Propia, a partir del `imports` del componente o `declarations` del módulo | Alta (es nuestra) |
-| Type-checking de templates (tipo exacto de cada binding) | `NgtscProgram` + `TemplateTypeChecker` | **Baja** (API semi-interna usada por el Language Service) |
+| Decorators, classes, imports, `inject()`, signals | TypeScript public API (`ts.Program`, type checker) | High |
+| Template AST and bindings | `parseTemplate` from `@angular/compiler` | Medium-high (public, changes across major versions) |
+| Resolving which component a template tag belongs to | Ours, based on the component's `imports` or the module's `declarations` | High (it's ours) |
+| Template type-checking (exact type of each binding) | `NgtscProgram` + `TemplateTypeChecker` | **Low** (semi-internal API used by the Language Service) |
 
-Decisión: **v1 no usa `TemplateTypeChecker`**. Los tipos de bindings se infieren desde la
-clase del componente vía TypeScript. Esto cubre el 90% de los casos y evita depender de
-API interna. Se reevalúa en v2 si hay demanda de precisión de tipos en templates.
+Decision: **v1 does not use `TemplateTypeChecker`**. Binding types are inferred from the
+component class via TypeScript. That covers 90% of cases and avoids depending on an
+internal API. It will be reassessed in v2 if there is demand for type precision in templates.
 
 ---
 
-## 5. Modelo de datos
+## 5. Data model
 
-### 5.1 Nodos
+### 5.1 Nodes
 
-Identificador único: `ruta/relativa/al/archivo.ts#NombreSimbolo`. Nunca solo el nombre
-(varios `UserListComponent` en un monorepo es un caso real).
+Unique identifier: `relative/path/to/file.ts#SymbolName`. Never just the name
+(several `UserListComponent` in a monorepo is a real case).
 
-| Tipo | Atributos principales |
+| Type | Main attributes |
 |------|------------------------|
-| `Component` | selector, standalone, changeDetection, templatePath o inline, stylePaths, inputs[], outputs[], signals[], lifecycleHooks[], hostBindings[] |
+| `Component` | selector, standalone, changeDetection, templatePath or inline, stylePaths, inputs[], outputs[], signals[], lifecycleHooks[], hostBindings[] |
 | `Directive` | selector, standalone, inputs[], outputs[], hostDirectives[] |
 | `Pipe` | name, standalone, pure |
 | `Service` | providedIn, isInjectable |
 | `NgModule` | declarations[], imports[], exports[], providers[] |
 | `Route` | path, componentRef, lazy (loadComponent/loadChildren), guards[], resolvers[], children[], data |
-| `Guard` / `Resolver` / `Interceptor` | kind (class o functional) |
+| `Guard` / `Resolver` / `Interceptor` | kind (class or functional) |
 | `Template` | path, inline, parseErrors[] |
 | `Signal` | ownerRef, name, kind (signal/computed/linkedSignal/input/model/output/viewChild/resource/toSignal), typeText, initialValueText |
-| `Observable` | ownerRef, name, typeText (solo campos declarados; no se sigue el flujo RxJS en v1) |
+| `Observable` | ownerRef, name, typeText (declared fields only; the RxJS flow is not followed in v1) |
 | `HttpCall` | method, urlPattern, urlConfidence (literal/template/unknown), requestTypeText, responseTypeText, callerRef |
-| `Spec` | path, describes[] (nombres bajo `describe(...)`), testedRefs[] |
-| `Model` | interfaces/tipos/clases usadas como DTO (heurística: exportadas y referenciadas en HttpCall o inputs) |
+| `Spec` | path, describes[] (names under `describe(...)`), testedRefs[] |
+| `Model` | interfaces/types/classes used as DTOs (heuristic: exported and referenced in an HttpCall or in inputs) |
 | `File` | path, hash, lastIndexed |
 
-### 5.2 Aristas
+### 5.2 Edges
 
-Todas las aristas llevan `provenance: { file, line, column }` y `confidence: 'certain' | 'inferred' | 'unknown'`.
+Every edge carries `provenance: { file, line, column }` and `confidence: 'certain' | 'inferred' | 'unknown'`.
 
 ```
 declares          File        → Symbol
-injects           Component|Directive|Service|Guard → Service        (constructor o inject())
+injects           Component|Directive|Service|Guard → Service        (constructor or inject())
 provides          NgModule|Component|Route → Service
 imports           Component|NgModule → Component|Directive|Pipe|NgModule
 renders           Component   → Template
-uses_in_template  Template    → Component|Directive|Pipe             (por selector resuelto)
-binds             Template    → Signal|Observable|Method|Property    (nombre + tipo de binding)
+uses_in_template  Template    → Component|Directive|Pipe             (by resolved selector)
+binds             Template    → Signal|Observable|Method|Property    (name + binding type)
 emits             Template    → Output
 routes_to         Route       → Component
 child_of          Route       → Route
 guarded_by        Route       → Guard
 resolves_with     Route       → Resolver
 calls_http        Service|Component → HttpCall
-intercepted_by    HttpCall    → Interceptor                           (si es global y detectable)
+intercepted_by    HttpCall    → Interceptor                           (if global and detectable)
 returns           HttpCall    → Model
 tested_by         Symbol      → Spec
 extends           Class       → Class
 ```
 
-### 5.3 Archivo de reglas (`angular-mcp.rules.yaml`)
+### 5.3 Rules file (`angular-mcp.rules.yaml`)
 
-Vive en la raíz del proyecto del usuario. Ejemplo:
+It lives at the root of the user's project. Example:
 
 ```yaml
 version: 1
@@ -229,278 +229,278 @@ boundaries:
 
 constraints:
   - id: no-http-in-components
-    description: Los componentes no hacen llamadas HTTP directas.
+    description: Components do not make direct HTTP calls.
     forbid: { edge: calls_http, from: Component }
   - id: services-own-http
-    description: Solo servicios de la capa data llaman HttpClient.
+    description: Only services in the data layer call HttpClient.
     forbid: { edge: calls_http, from_layer_not: data }
   - id: onpush-required
-    description: Todo componente usa OnPush.
+    description: Every component uses OnPush.
     require: { node: Component, attr: changeDetection, equals: OnPush }
     severity: warning
 
 decisions:
   - id: pagination-server-side
-    text: La paginación se hace siempre del lado del servidor.
+    text: Pagination is always done server-side.
     applies_to: ["src/app/**/*-list.component.ts"]
 ```
 
-Si el proyecto ya usa `@softarc/sheriff` o `@nx/enforce-module-boundaries`, el MCP
-**importa** esa configuración en vez de exigir una duplicada (ver R10).
+If the project already uses `@softarc/sheriff` or `@nx/enforce-module-boundaries`, the MCP
+**imports** that configuration instead of demanding a duplicate one (see R10).
 
 ---
 
-## 6. Herramientas MCP
+## 6. MCP tools
 
-Prefijo `angular_` para convivir con otros servidores. Toda herramienta de lectura tiene
-`readOnlyHint: true`. Toda herramienta que lista acepta `limit` (default 20), `offset` y
-`format: 'markdown' | 'json'` (default markdown). Toda respuesta incluye `provenance`.
+The `angular_` prefix keeps them from colliding with other servers. Every read tool has
+`readOnlyHint: true`. Every tool that lists accepts `limit` (default 20), `offset` and
+`format: 'markdown' | 'json'` (markdown by default). Every response includes `provenance`.
 
-### Fase 1 — Índice y consulta
+### Phase 1 — Index and query
 
-| Herramienta | Entrada | Salida | Notas |
+| Tool | Input | Output | Notes |
 |-------------|---------|--------|-------|
-| `angular_index_project` | `root?`, `project?`, `force?` | resumen: nodos por tipo, archivos, tiempo, errores de parseo | Idempotente. Incremental por hash. |
-| `angular_get_index_status` | — | `fresh/stale`, archivos pendientes, versión de Angular detectada | Permite al agente saber si debe reindexar. |
-| `angular_find_symbol` | `query`, `kind?`, `limit?` | candidatos con id, kind, path, selector | Búsqueda por nombre, selector o path. Siempre devuelve candidatos, no uno solo. |
-| `angular_get_component` | `ref`, `depth?` | ficha completa: template, estado, dependencias, bindings, consumidores, rutas que lo cargan, HTTP alcanzable, specs | La herramienta central. `depth` limita el recorrido de HTTP alcanzable. |
-| `angular_get_service` | `ref` | inyectado en, inyecta, llamadas HTTP, providedIn, specs | |
-| `angular_get_route_tree` | `project?`, `path_prefix?`, `depth?` | árbol de rutas con lazy, guards, resolvers, componente destino | |
-| `angular_who_uses` | `ref`, `via?` (imports/injects/uses_in_template/routes_to) | lista de consumidores con tipo de arista y proveniencia | |
-| `angular_get_template_bindings` | `ref` | bindings clasificados: interpolación, property, event, two-way, control flow, con símbolo resuelto y tipo si se conoce | |
-| `angular_list_http_calls` | `filter?` (method, url_pattern, caller) | llamadas con confianza de URL | Base para la capa de contratos. |
-| `angular_impact_of` | `refs[]` o `files[]`, `depth?` | subgrafo afectado hacia arriba (consumidores) y hacia abajo (dependencias), agrupado por tipo, más specs alcanzados | La herramienta para "voy a tocar X". |
+| `angular_index_project` | `root?`, `project?`, `force?` | summary: nodes by type, files, time, parse errors | Idempotent. Incremental by hash. |
+| `angular_get_index_status` | — | `fresh/stale`, pending files, detected Angular version | Lets the agent know whether it should reindex. |
+| `angular_find_symbol` | `query`, `kind?`, `limit?` | candidates with id, kind, path, selector | Search by name, selector or path. Always returns candidates, never a single one. |
+| `angular_get_component` | `ref`, `depth?` | full profile: template, state, dependencies, bindings, consumers, routes that load it, reachable HTTP, specs | The central tool. `depth` bounds the reachable-HTTP traversal. |
+| `angular_get_service` | `ref` | injected into, injects, HTTP calls, providedIn, specs | |
+| `angular_get_route_tree` | `project?`, `path_prefix?`, `depth?` | route tree with lazy loading, guards, resolvers, target component | |
+| `angular_who_uses` | `ref`, `via?` (imports/injects/uses_in_template/routes_to) | list of consumers with edge type and provenance | |
+| `angular_get_template_bindings` | `ref` | classified bindings: interpolation, property, event, two-way, control flow, with the resolved symbol and its type when known | |
+| `angular_list_http_calls` | `filter?` (method, url_pattern, caller) | calls with URL confidence | The basis for the contracts layer. |
+| `angular_impact_of` | `refs[]` or `files[]`, `depth?` | affected subgraph upward (consumers) and downward (dependencies), grouped by type, plus the specs reached | The tool for "I'm about to touch X". |
 
-### Fase 2 — Arquitectura
+### Phase 2 — Architecture
 
-| Herramienta | Entrada | Salida |
+| Tool | Input | Output |
 |-------------|---------|--------|
-| `angular_list_rules` | — | reglas cargadas, origen (propio / sheriff / nx), capas resueltas por archivo |
-| `angular_check_rules` | `diff?` (unified) o `files[]` o nada (todo el proyecto) | violaciones con regla, arista ofensora, proveniencia y sugerencia de ruta permitida |
-| `angular_explain_layer` | `file` | a qué capa pertenece, por qué (regla de match), qué puede importar |
+| `angular_list_rules` | — | loaded rules, origin (own / sheriff / nx), layers resolved per file |
+| `angular_check_rules` | `diff?` (unified) or `files[]` or nothing (the whole project) | violations with the rule, the offending edge, provenance and a suggested allowed path |
+| `angular_explain_layer` | `file` | which layer it belongs to, why (matching rule), what it may import |
 
-`angular_check_rules` con un diff es el **gatekeeper**: el agente lo llama antes de escribir
-o después de generar el cambio, y obtiene violaciones concretas.
+`angular_check_rules` with a diff is the **gatekeeper**: the agent calls it before writing
+or after generating the change, and gets concrete violations back.
 
-### Fase 3 — Patrones y contratos
+### Phase 3 — Patterns and contracts
 
-| Herramienta | Entrada | Salida |
+| Tool | Input | Output |
 |-------------|---------|--------|
-| `angular_find_similar` | `ref`, `aspect?` (dependencies/state/http/template) | nodos con firma estructural parecida, ordenados por similitud, con la diferencia resumida |
-| `angular_get_api_contract` | `url_pattern` o `http_call_ref` | si existe OpenAPI/Swagger en el repo: schema de request/response. Si no: tipos TS inferidos y `confidence: inferred` |
-| `angular_list_decisions` | `applies_to?` | decisiones declaradas en el archivo de reglas que aplican a un path |
+| `angular_find_similar` | `ref`, `aspect?` (dependencies/state/http/template) | nodes with a similar structural signature, ordered by similarity, with a summary of the difference |
+| `angular_get_api_contract` | `url_pattern` or `http_call_ref` | if there is an OpenAPI/Swagger file in the repo: the request/response schema. If not: inferred TS types and `confidence: inferred` |
+| `angular_list_decisions` | `applies_to?` | decisions declared in the rules file that apply to a path |
 
-### Fase 4 — Recursos y prompts MCP
+### Phase 4 — MCP resources and prompts
 
-- Resource `angular://project/summary`: resumen del proyecto (conteos, versión, capas).
-- Resource `angular://rules`: el archivo de reglas tal como se cargó.
-- Prompt `angular_plan_change`: plantilla que guía al agente a llamar `find_symbol → get_component → impact_of → find_similar → check_rules` antes de proponer un cambio. Es la única pieza "opinada" del servidor y es opcional.
+- Resource `angular://project/summary`: project summary (counts, version, layers).
+- Resource `angular://rules`: the rules file exactly as it was loaded.
+- Prompt `angular_plan_change`: a template that guides the agent to call `find_symbol → get_component → impact_of → find_similar → check_rules` before proposing a change. It is the server's only "opinionated" piece and it is optional.
 
-### Fase 5 — Mutaciones acotadas (condicional)
+### Phase 5 — Bounded mutations (conditional)
 
-Solo si las fases 1–3 alcanzan las métricas de la sección 10. Todas con `dry_run: true`
-por defecto y devolviendo un diff, nunca escribiendo directamente sin confirmación.
+Only if phases 1–3 hit the metrics in section 10. All of them with `dry_run: true`
+by default and returning a diff, never writing directly without confirmation.
 
-| Herramienta | Estrategia |
+| Tool | Strategy |
 |-------------|------------|
-| `angular_generate` | Envuelve `ng generate` (schematics del propio proyecto, incluidas las custom). Aporta valor porque resuelve el path y las opciones según convenciones detectadas. |
-| `angular_add_route` | Inserta en el array de rutas correcto (resuelto por el grafo), respetando lazy/eager según el patrón dominante. |
-| `angular_add_dependency` | Agrega `inject()` o parámetro de constructor según el estilo dominante del archivo. |
+| `angular_generate` | Wraps `ng generate` (the project's own schematics, custom ones included). It adds value because it resolves the path and the options from the detected conventions. |
+| `angular_add_route` | Inserts into the right routes array (resolved through the graph), respecting lazy/eager according to the dominant pattern. |
+| `angular_add_dependency` | Adds an `inject()` call or a constructor parameter according to the file's dominant style. |
 
-`add_signal` y `bind_template` **no** entran en v1. Son las más frágiles y las que menos
-valor agregan frente a que el LLM edite con el contexto que ya le da `get_component`.
+`add_signal` and `bind_template` are **not** in v1. They are the most fragile ones and the ones
+that add the least value compared to letting the LLM edit with the context `get_component` already gives it.
 
 ---
 
-## 7. Fases, entregables y criterios de salida
+## 7. Phases, deliverables and exit criteria
 
-Estimaciones para una persona a tiempo completo. Son rangos, no compromisos.
+Estimates for one person working full time. They are ranges, not commitments.
 
-### Fase 0 — Fundaciones (1 semana)
+### Phase 0 — Foundations (1 week)
 
-**Entregables**
-- Repositorio TypeScript: `pnpm`, `tsconfig` estricto, ESLint, Vitest, build con `tsup` o `tsc`.
-- Esqueleto del servidor con `@modelcontextprotocol/sdk` sobre stdio y una herramienta `angular_ping`.
-- Dos apps fixture en `fixtures/`: una standalone moderna (signals, control flow, lazy routes, interceptores funcionales) y una NgModule legacy (constructor DI, `RouterModule.forRoot`, `*ngIf`).
-- Ground truth manual para ambas fixtures en `fixtures/*/expected-graph.json`.
-- CI: lint, typecheck, tests, y matriz de versiones de Angular (mínimo dos versiones mayores).
+**Deliverables**
+- TypeScript repository: `pnpm`, strict `tsconfig`, ESLint, Vitest, build with `tsup` or `tsc`.
+- Server skeleton with `@modelcontextprotocol/sdk` over stdio and an `angular_ping` tool.
+- Two fixture apps in `fixtures/`: a modern standalone one (signals, control flow, lazy routes, functional interceptors) and a legacy NgModule one (constructor DI, `RouterModule.forRoot`, `*ngIf`).
+- Manual ground truth for both fixtures in `fixtures/*/expected-graph.json`.
+- CI: lint, typecheck, tests, and an Angular version matrix (two major versions minimum).
 
-**Criterio de salida:** el servidor arranca en MCP Inspector y la matriz de CI está verde.
+**Exit criterion:** the server starts in MCP Inspector and the CI matrix is green.
 
-### Fase 1 — Indexer y consultas (3–4 semanas)
+### Phase 1 — Indexer and queries (3–4 weeks)
 
-**Entregables**
+**Deliverables**
 - Extractors: `decorators`, `di`, `signals`, `templates`, `routes`, `http`, `specs`, `modules`.
-- Project Graph con cache en disco por hash.
-- Herramientas de la Fase 1 completas.
-- Detección de workspace (`angular.json`, `tsconfig` por proyecto).
-- Resolución de `@angular/compiler` desde el `node_modules` del proyecto analizado.
+- Project Graph with an on-disk, hash-based cache.
+- All the Phase 1 tools, complete.
+- Workspace detection (`angular.json`, per-project `tsconfig`).
+- Resolution of `@angular/compiler` from the analyzed project's `node_modules`.
 
-**Criterio de salida**
-- Precisión ≥ 95% y recall ≥ 90% de nodos y aristas contra el ground truth de ambas fixtures.
-- Indexación completa de una app de 500 archivos en < 15 s en frío y < 2 s incremental.
-- Ninguna respuesta de herramienta supera 8 KB en markdown con `limit` por defecto.
+**Exit criteria**
+- Precision ≥ 95% and recall ≥ 90% on nodes and edges against the ground truth of both fixtures.
+- Full indexing of a 500-file app in < 15 s cold and < 2 s incremental.
+- No tool response exceeds 8 KB in markdown with the default `limit`.
 
-### Fase 2 — Reglas (1–2 semanas)
+### Phase 2 — Rules (1–2 weeks)
 
-**Entregables**
-- Esquema y validación del archivo de reglas.
-- Rules Engine y las tres herramientas de Fase 2.
-- Importador de configuración de `sheriff` y de `nx` boundaries (lectura, no escritura).
-- Documentación del formato de reglas con ejemplos.
+**Deliverables**
+- Schema and validation for the rules file.
+- Rules Engine and the three Phase 2 tools.
+- Importer for `sheriff` configuration and `nx` boundaries (read, not write).
+- Documentation of the rules format with examples.
 
-**Criterio de salida**
-- `angular_check_rules` detecta el 100% de las violaciones plantadas en las fixtures, sin falsos positivos.
-- Un diff que introduce `HttpClient` en un componente produce una violación con sugerencia de ruta permitida.
+**Exit criteria**
+- `angular_check_rules` detects 100% of the violations planted in the fixtures, with no false positives.
+- A diff that introduces `HttpClient` into a component produces a violation with a suggested allowed path.
 
-### Fase 3 — Patrones y contratos (2 semanas)
+### Phase 3 — Patterns and contracts (2 weeks)
 
-**Entregables**
-- Pattern Finder por firma estructural.
-- Lector de OpenAPI (si existe en el repo) y vínculo `HttpCall → operación`.
-- Herramientas de Fase 3.
+**Deliverables**
+- Pattern Finder based on structural signatures.
+- OpenAPI reader (if one exists in the repo) and the `HttpCall → operation` link.
+- The Phase 3 tools.
 
-**Criterio de salida**
-- Para "agrega paginación a usuarios" sobre la fixture, `find_similar` devuelve el componente que ya pagina en el primer resultado.
+**Exit criterion**
+- For "add pagination to users" on the fixture, `find_similar` returns the component that already paginates as the first result.
 
-### Fase 4 — Evaluación y hardening (2 semanas)
+### Phase 4 — Evaluation and hardening (2 weeks)
 
-**Entregables**
-- 10 preguntas de evaluación (formato de la sección 9.3) sobre las fixtures, con respuestas verificadas.
-- Benchmark A/B de 5 tareas reales con y sin el MCP (ver sección 10).
-- Watcher de archivos opcional (`chokidar`) para invalidación en caliente.
-- Manejo de errores accionable en todas las herramientas.
-- README con instalación para Claude Code y Cursor.
+**Deliverables**
+- 10 evaluation questions (in the format of section 9.3) over the fixtures, with verified answers.
+- A/B benchmark of 5 real tasks with and without the MCP (see section 10).
+- Optional file watcher (`chokidar`) for hot invalidation.
+- Actionable error handling across all tools.
+- README with installation instructions for Claude Code and Cursor.
 
-**Criterio de salida:** métricas de la sección 10 cumplidas. Publicación `0.1.0`.
+**Exit criterion:** the metrics in section 10 are met. `0.1.0` release.
 
-### Fase 5 — Mutaciones acotadas (condicional, 2–3 semanas)
+### Phase 5 — Bounded mutations (conditional, 2–3 weeks)
 
-Solo se abre si la Fase 4 muestra que el grafo es confiable en al menos un proyecto real
-externo a las fixtures. Entregables según sección 6, Fase 5.
+It only opens if Phase 4 shows that the graph is trustworthy on at least one real project
+outside the fixtures. Deliverables per section 6, Phase 5.
 
 ---
 
-## 8. Riesgos y mitigaciones
+## 8. Risks and mitigations
 
-| ID | Riesgo | Prob. | Impacto | Mitigación | Señal de alerta |
+| ID | Risk | Prob. | Impact | Mitigation | Warning sign |
 |----|--------|-------|---------|------------|-----------------|
-| R1 | La API de `@angular/compiler` cambia entre versiones mayores y rompe el parser de templates. | Alta | Alto | Resolver el compilador desde el proyecto analizado. Capa adaptadora por versión mayor. Matriz de CI con ≥ 2 versiones. No usar `TemplateTypeChecker` en v1. | Tests de la matriz fallan al subir una versión de fixture. |
-| R2 | El grafo se desincroniza del código (cache vieja, archivos editados fuera del MCP). | Alta | Alto | Hash por archivo en cada consulta. `get_index_status` con `stale`. Watcher opcional. Nunca persistir hechos que no se puedan rederivar. | Una consulta devuelve un símbolo que ya no existe. |
-| R3 | Cobertura parcial de llamadas HTTP (URLs construidas dinámicamente, `environment.apiUrl`, interceptores que reescriben). | Alta | Medio | `urlConfidence` explícito. Resolver constantes simples y `environment.*` por evaluación estática limitada. Reportar `unknown` en el resto. | Más del 30% de HttpCalls con `unknown` en un proyecto real. |
-| R4 | Proyectos híbridos NgModule + standalone producen resolución incorrecta de selectores en templates. | Media | Alto | Ambas fixtures desde Fase 0. Resolución de scope por componente: `imports` propios o `declarations` del módulo que lo declara. | `uses_in_template` con `confidence: unknown` para selectores conocidos. |
-| R5 | Repos grandes (miles de archivos, monorepo) hacen la indexación lenta o consumen mucha memoria. | Media | Alto | Indexación por proyecto de `angular.json`, no del workspace entero. Templates parseados bajo demanda y cacheados. Límites de tiempo y paginación. Evaluar SQLite si > 5k archivos. | Indexación en frío > 60 s. |
-| R6 | Respuestas demasiado grandes saturan el contexto del agente, reproduciendo el problema que se quería resolver. | Alta | Alto | `limit`, `depth` y `format` en todo. Fichas en markdown resumidas por defecto, JSON completo solo bajo petición. Tope de 8 KB por defecto. | El agente pide `limit` altos repetidamente o trunca. |
-| R7 | El agente confía en el grafo sin verificar y actúa sobre un hecho inferido erróneo. | Media | Alto | `confidence` y `provenance` en cada hecho. Descripciones de herramientas que dicen explícitamente qué es inferido. Nunca omitir el archivo:línea. | Tareas del benchmark fallan por un hecho `inferred` incorrecto. |
-| R8 | Las mutaciones generan código que viola las convenciones del repositorio. | Alta | Medio | Mutaciones diferidas a Fase 5 y condicionadas a métricas. Delegar a schematics del propio proyecto. `dry_run` por defecto. Detectar estilo dominante antes de escribir. | Cualquier mutación que necesite ser corregida a mano en el benchmark. |
-| R9 | El MCP incorpora razonamiento (recomendaciones, prioridades) y se convierte en un LLM dentro de un LLM: no determinista, difícil de testear. | Media | Medio | P2. Revisión de cada herramienta: si la salida no es reproducible desde el grafo, no entra. El único elemento "opinado" es el prompt opcional. | Aparece una herramienta cuya salida no se puede testear con igualdad exacta. |
-| R10 | Duplicación de reglas con `sheriff`, `eslint-plugin-boundaries` o Nx: dos fuentes de verdad que divergen. | Media | Medio | Importador de esas configuraciones. El archivo propio solo agrega `constraints` y `decisions` que esas herramientas no cubren. | Un usuario mantiene dos archivos de capas. |
-| R11 | Seguridad: path traversal en `root`/`files`, ejecución de comandos al envolver `ng generate` o tests. | Baja | Alto | Validar que todo path resuelva dentro del root. Sin shell: `spawn` con argumentos como array. Timeouts. Sin acceso de red. | Test de seguridad falla. |
-| R12 | Scope creep hacia runtime, otros frameworks o mutaciones tempranas. | Alta | Medio | Gates por fase con criterios de salida. Sección 3 como referencia en cada revisión. | Un PR agrega una herramienta no listada en la sección 6. |
-| R13 | Ambigüedad de nombres (varios símbolos con el mismo nombre en un monorepo). | Media | Medio | Ids = `path#símbolo`. `find_symbol` siempre devuelve candidatos. Las demás herramientas exigen `ref` completo. | El agente llama `get_component` con un nombre pelado y recibe el equivocado. |
-| R14 | Template inline vs archivo, templates con errores de sintaxis, `templateUrl` relativo mal resuelto. | Media | Bajo | Almacenar `parseErrors` en el nodo `Template` y exponerlos. No abortar el índice por un template roto. | Índice aborta por un solo archivo. |
-| R15 | Falta de evidencia de que el MCP realmente reduce contexto y turnos. | Media | Alto | Benchmark A/B desde Fase 4 con métricas de la sección 10. No publicar sin números. | No hay benchmark al cerrar Fase 4. |
-| R16 | Dependencia de `NgtscProgram` para resolver el scope de standalone imports en casos complejos (re-exports, `forwardRef`, barrels). | Media | Medio | Resolución propia vía type checker de TS para imports y barrels. Casos no resueltos marcados `unknown`. Reevaluar `NgtscProgram` en v2 solo para esos casos. | Fixture con barrels muestra `imports` con `unknown`. |
+| R1 | The `@angular/compiler` API changes between major versions and breaks the template parser. | High | High | Resolve the compiler from the analyzed project. Adapter layer per major version. CI matrix with ≥ 2 versions. Do not use `TemplateTypeChecker` in v1. | Matrix tests fail when a fixture version is bumped. |
+| R2 | The graph drifts out of sync with the code (stale cache, files edited outside the MCP). | High | High | Per-file hash on every query. `get_index_status` with `stale`. Optional watcher. Never persist facts that cannot be re-derived. | A query returns a symbol that no longer exists. |
+| R3 | Partial coverage of HTTP calls (dynamically built URLs, `environment.apiUrl`, interceptors that rewrite them). | High | Medium | Explicit `urlConfidence`. Resolve simple constants and `environment.*` through limited static evaluation. Report `unknown` for the rest. | More than 30% of HttpCalls marked `unknown` in a real project. |
+| R4 | Hybrid NgModule + standalone projects produce incorrect selector resolution in templates. | Medium | High | Both fixtures in place from Phase 0. Per-component scope resolution: its own `imports` or the `declarations` of the module that declares it. | `uses_in_template` with `confidence: unknown` for known selectors. |
+| R5 | Large repos (thousands of files, monorepo) make indexing slow or consume too much memory. | Medium | High | Index per `angular.json` project, not the whole workspace. Templates parsed on demand and cached. Time limits and pagination. Consider SQLite if > 5k files. | Cold indexing > 60 s. |
+| R6 | Responses that are too large flood the agent's context, recreating the very problem we set out to solve. | High | High | `limit`, `depth` and `format` everywhere. Summarized markdown profiles by default, full JSON only on request. 8 KB cap by default. | The agent repeatedly asks for high `limit` values or truncates. |
+| R7 | The agent trusts the graph without verifying and acts on a wrong inferred fact. | Medium | High | `confidence` and `provenance` on every fact. Tool descriptions that state explicitly what is inferred. Never omit the file:line. | Benchmark tasks fail because of an incorrect `inferred` fact. |
+| R8 | Mutations generate code that violates the repository's conventions. | High | Medium | Mutations deferred to Phase 5 and gated on metrics. Delegate to the project's own schematics. `dry_run` by default. Detect the dominant style before writing. | Any mutation that has to be fixed by hand in the benchmark. |
+| R9 | The MCP takes on reasoning (recommendations, priorities) and turns into an LLM inside an LLM: non-deterministic, hard to test. | Medium | Medium | P2. Review each tool: if the output is not reproducible from the graph, it does not go in. The only "opinionated" element is the optional prompt. | A tool appears whose output cannot be tested with exact equality. |
+| R10 | Duplicated rules with `sheriff`, `eslint-plugin-boundaries` or Nx: two sources of truth that diverge. | Medium | Medium | Importer for those configurations. Our own file only adds the `constraints` and `decisions` those tools do not cover. | A user maintains two layer files. |
+| R11 | Security: path traversal in `root`/`files`, command execution when wrapping `ng generate` or tests. | Low | High | Validate that every path resolves inside the root. No shell: `spawn` with arguments as an array. Timeouts. No network access. | A security test fails. |
+| R12 | Scope creep toward runtime, other frameworks or early mutations. | High | Medium | Per-phase gates with exit criteria. Section 3 as the reference in every review. | A PR adds a tool that is not listed in section 6. |
+| R13 | Name ambiguity (several symbols with the same name in a monorepo). | Medium | Medium | Ids = `path#symbol`. `find_symbol` always returns candidates. The other tools require the full `ref`. | The agent calls `get_component` with a bare name and gets the wrong one. |
+| R14 | Inline template vs file, templates with syntax errors, badly resolved relative `templateUrl`. | Medium | Low | Store `parseErrors` on the `Template` node and expose them. Do not abort the index because of one broken template. | The index aborts because of a single file. |
+| R15 | No evidence that the MCP actually reduces context and turns. | Medium | High | A/B benchmark from Phase 4 on with the metrics in section 10. Do not publish without numbers. | There is no benchmark when Phase 4 closes. |
+| R16 | Dependence on `NgtscProgram` to resolve standalone import scope in complex cases (re-exports, `forwardRef`, barrels). | Medium | Medium | Our own resolution via the TS type checker for imports and barrels. Unresolved cases marked `unknown`. Reassess `NgtscProgram` in v2 for those cases only. | A fixture with barrels shows `imports` marked `unknown`. |
 
 ---
 
-## 9. Estrategia de pruebas
+## 9. Testing strategy
 
-### 9.1 Unitarias (por extractor)
+### 9.1 Unit tests (per extractor)
 
-Cada extractor se prueba contra fragmentos de código mínimos: entrada `ts.SourceFile`,
-salida nodos/aristas esperados. Cubrir:
+Each extractor is tested against minimal code fragments: a `ts.SourceFile` in,
+the expected nodes/edges out. Cover:
 
-- DI por constructor, por `inject()`, con `@Optional`, `@Inject(TOKEN)`, `inject(TOKEN, { optional: true })`.
+- DI via constructor, via `inject()`, with `@Optional`, `@Inject(TOKEN)`, `inject(TOKEN, { optional: true })`.
 - Signals: `signal`, `computed`, `linkedSignal`, `input`, `input.required`, `model`, `output`, `viewChild`, `toSignal`, `resource`, `httpResource`.
-- Templates: interpolación, `[prop]`, `(event)`, `[(ngModel)]`, `@if/@for/@switch/@defer/@let`, `*ngIf/*ngFor`, pipes, referencias `#ref`.
-- Rutas: array literal, `provideRouter`, `RouterModule.forRoot/forChild`, `loadChildren` con `import()`, `loadComponent`, `children`, guards funcionales y de clase.
-- HTTP: `HttpClient.get/post/put/patch/delete`, genéricos, URL literal, template literal, concatenación, `environment.apiUrl`.
+- Templates: interpolation, `[prop]`, `(event)`, `[(ngModel)]`, `@if/@for/@switch/@defer/@let`, `*ngIf/*ngFor`, pipes, `#ref` references.
+- Routes: literal array, `provideRouter`, `RouterModule.forRoot/forChild`, `loadChildren` with `import()`, `loadComponent`, `children`, functional and class guards.
+- HTTP: `HttpClient.get/post/put/patch/delete`, generics, literal URL, template literal, concatenation, `environment.apiUrl`.
 
-### 9.2 Integración (por fixture)
+### 9.2 Integration tests (per fixture)
 
-Índice completo de cada fixture comparado con `expected-graph.json` mediante igualdad
-estructural (ignorando orden). Cualquier divergencia es un fallo, no una advertencia.
+The full index of each fixture compared against `expected-graph.json` through structural
+equality (ignoring order). Any divergence is a failure, not a warning.
 
-### 9.3 Evaluación con agente
+### 9.3 Agent evaluation
 
-Diez preguntas en el formato de evaluación de MCP (`evaluation.xml`), independientes,
-de solo lectura, con respuesta única verificable. Ejemplos:
+Ten questions in the MCP evaluation format (`evaluation.xml`), independent,
+read-only, each with a single verifiable answer. Examples:
 
-- "¿Qué componente carga la ruta `/admin/users` y qué guard la protege?"
-- "¿Qué servicios inyecta transitivamente `OrderDetailComponent` hasta llegar a una llamada HTTP?"
-- "¿Cuál es el único componente que hace una llamada HTTP directa, violando la regla `no-http-in-components`?"
+- "Which component does the `/admin/users` route load, and which guard protects it?"
+- "Which services does `OrderDetailComponent` transitively inject on the way to an HTTP call?"
+- "Which is the only component that makes a direct HTTP call, violating the `no-http-in-components` rule?"
 
-### 9.4 Matriz de versiones
+### 9.4 Version matrix
 
-CI ejecuta las fixtures con al menos dos versiones mayores de Angular instaladas en
-`fixtures/*/node_modules`. Al publicar una versión mayor nueva de Angular se agrega a
-la matriz antes de cualquier otro trabajo.
+CI runs the fixtures against at least two major Angular versions installed in
+`fixtures/*/node_modules`. When a new major Angular version ships, it is added to
+the matrix before any other work.
 
 ---
 
-## 10. Métricas de éxito (Fase 4)
+## 10. Success metrics (Phase 4)
 
-Benchmark: cinco tareas reales sobre una fixture ampliada, ejecutadas por el mismo agente
-con y sin el MCP, tres repeticiones cada una.
+Benchmark: five real tasks on an extended fixture, run by the same agent
+with and without the MCP, three repetitions each.
 
-| Métrica | Objetivo |
+| Metric | Target |
 |---------|----------|
-| Tokens de entrada consumidos por tarea | −50% con MCP |
-| Archivos leídos completos por tarea | −60% con MCP |
-| Turnos hasta la primera edición correcta | −40% con MCP |
-| Tasa de éxito de la tarea (tests pasan) | ≥ igual que sin MCP; nunca menor |
-| Violaciones de arquitectura introducidas | 0 con `check_rules` en el flujo |
-| Precisión del grafo vs ground truth | ≥ 95% |
-| Indexación incremental | < 2 s |
+| Input tokens consumed per task | −50% with MCP |
+| Full files read per task | −60% with MCP |
+| Turns until the first correct edit | −40% with MCP |
+| Task success rate (tests pass) | ≥ the same as without MCP; never lower |
+| Architecture violations introduced | 0 with `check_rules` in the loop |
+| Graph precision vs ground truth | ≥ 95% |
+| Incremental indexing | < 2 s |
 
-Si la tasa de éxito baja con el MCP, se detiene la Fase 5 y se investiga R7.
+If the success rate drops with the MCP, Phase 5 is halted and R7 is investigated.
 
 ---
 
-## 11. Stack técnico
+## 11. Tech stack
 
-| Área | Elección | Motivo |
+| Area | Choice | Reason |
 |------|----------|--------|
-| Lenguaje | TypeScript, ESM, Node ≥ 20 | Mismo ecosistema que Angular; SDK MCP de primera clase. |
-| MCP | `@modelcontextprotocol/sdk` | Oficial. `registerTool` con Zod, `outputSchema`, anotaciones. |
-| Parseo TS | API de `typescript` (del proyecto analizado) | Sin dependencias extra; `ts-morph` solo si simplifica mucho la Fase 5. |
-| Parseo templates | `@angular/compiler` (del proyecto analizado) | Ver 4.2. |
-| Validación | Zod | Esquemas de entrada, de salida y del archivo de reglas. |
-| Reglas | YAML + esquema Zod | Legible en revisión de código. |
-| Cache | JSON por archivo en `.angular-mcp/cache/` | Simple, inspeccionable, sin dependencias nativas. SQLite se evalúa en R5. |
-| Watcher | `chokidar` (opcional) | Invalidación en caliente. |
-| Tests | Vitest | Rápido, ESM nativo. |
-| Build | `tsup` | Un binario `angular-mcp` ejecutable con `npx`. |
-| Gestor | `pnpm` | Workspace para `packages/server` y `fixtures/*`. |
-| CI | GitHub Actions | Matriz de versiones de Angular. |
+| Language | TypeScript, ESM, Node ≥ 20 | Same ecosystem as Angular; first-class MCP SDK. |
+| MCP | `@modelcontextprotocol/sdk` | Official. `registerTool` with Zod, `outputSchema`, annotations. |
+| TS parsing | The `typescript` API (from the analyzed project) | No extra dependencies; `ts-morph` only if it substantially simplifies Phase 5. |
+| Template parsing | `@angular/compiler` (from the analyzed project) | See 4.2. |
+| Validation | Zod | Input schemas, output schemas and the rules file schema. |
+| Rules | YAML + Zod schema | Readable in code review. |
+| Cache | One JSON file per source file under `.angular-mcp/cache/` | Simple, inspectable, no native dependencies. SQLite is evaluated in R5. |
+| Watcher | `chokidar` (optional) | Hot invalidation. |
+| Tests | Vitest | Fast, native ESM. |
+| Build | `tsup` | A single `angular-mcp` binary runnable with `npx`. |
+| Package manager | `pnpm` | Workspace for `packages/server` and `fixtures/*`. |
+| CI | GitHub Actions | Angular version matrix. |
 
-Logs siempre a `stderr` (stdio reserva `stdout` para el protocolo).
+Logs always go to `stderr` (stdio reserves `stdout` for the protocol).
 
 ---
 
-## 12. Estructura del repositorio propuesta
+## 12. Proposed repository structure
 
 ```
 angular-mcp/
 ├── docs/
-│   ├── PLAN.md                 ← este documento
-│   ├── RULES.md                ← formato del archivo de reglas
-│   └── adr/                    ← decisiones de arquitectura (una por archivo)
+│   ├── PLAN.md                 ← this document
+│   ├── RULES.md                ← rules file format
+│   └── adr/                    ← architecture decisions (one per file)
 ├── packages/
 │   └── server/
 │       ├── src/
-│       │   ├── index.ts        ← entrada stdio
-│       │   ├── server.ts       ← registro de tools/resources/prompts
-│       │   ├── tools/          ← una herramienta por archivo
+│       │   ├── index.ts        ← stdio entry point
+│       │   ├── server.ts       ← tools/resources/prompts registration
+│       │   ├── tools/          ← one tool per file
 │       │   ├── indexer/
 │       │   │   ├── workspace.ts
-│       │   │   ├── program.ts  ← carga de ts.Program y del compilador del proyecto
+│       │   │   ├── program.ts  ← loads ts.Program and the project's compiler
 │       │   │   └── extractors/
-│       │   ├── graph/          ← modelo, índices, cache
-│       │   ├── rules/          ← esquema, carga, evaluación, importadores
-│       │   ├── patterns/       ← firmas estructurales y similitud
-│       │   └── format/         ← markdown/json, truncado, paginación
+│       │   ├── graph/          ← model, indexes, cache
+│       │   ├── rules/          ← schema, loading, evaluation, importers
+│       │   ├── patterns/       ← structural signatures and similarity
+│       │   └── format/         ← markdown/json, truncation, pagination
 │       └── test/
 ├── fixtures/
 │   ├── standalone-app/
@@ -514,35 +514,35 @@ angular-mcp/
 
 ---
 
-## 13. Decisiones abiertas
+## 13. Open decisions
 
-| Decisión | Opciones | Cuándo se decide |
+| Decision | Options | When it gets decided |
 |----------|----------|------------------|
-| Persistencia del grafo | JSON por archivo vs SQLite | Fin de Fase 1, con datos de rendimiento reales. |
-| Soporte Nx sin `angular.json` | v1 básico vs v2 completo | Según demanda tras 0.1.0. |
-| Seguir el flujo RxJS (`pipe`, `switchMap`) para conectar observables con HTTP | v1 no; v2 posible | Si el benchmark muestra que el agente lo necesita. |
-| `TemplateTypeChecker` para tipos exactos en templates | Excluido en v1 | v2, solo si R16 se materializa. |
-| Nombre del paquete npm | `angular-mcp-server` vs `@rixmerz/angular-mcp` | Antes de publicar 0.1.0. |
-| Licencia | MIT vs Apache-2.0 | Antes de publicar 0.1.0. |
+| Graph persistence | One JSON file per source file vs SQLite | End of Phase 1, with real performance data. |
+| Nx support without `angular.json` | Basic in v1 vs full in v2 | Based on demand after 0.1.0. |
+| Following the RxJS flow (`pipe`, `switchMap`) to connect observables with HTTP | Not in v1; possible in v2 | If the benchmark shows the agent needs it. |
+| `TemplateTypeChecker` for exact types in templates | Excluded in v1 | v2, only if R16 materializes. |
+| npm package name | `angular-mcp-server` vs `@rixmerz/angular-mcp` | Before publishing 0.1.0. |
+| License | MIT vs Apache-2.0 | Before publishing 0.1.0. |
 
 ---
 
-## 14. Extensibilidad futura (no comprometida)
+## 14. Future extensibility (not committed)
 
-- **Runtime:** un segundo servidor o un modo opcional que consuma errores del `ng serve`,
-  resultados de tests y tráfico HTTP del navegador, y los enlace a nodos del grafo.
-- **Otros frameworks:** el Project Graph, el Rules Engine y el Pattern Finder son agnósticos.
-  Solo los extractors son específicos de Angular. Un `react-mcp` reutilizaría el 60% del núcleo.
-- **Contratos vivos:** vincular `HttpCall` con el backend real (Nest, Spring) cuando ambos
-  repos estén disponibles en el mismo workspace.
+- **Runtime:** a second server, or an optional mode, that consumes `ng serve` errors,
+  test results and browser HTTP traffic, and links them to graph nodes.
+- **Other frameworks:** the Project Graph, the Rules Engine and the Pattern Finder are agnostic.
+  Only the extractors are Angular-specific. A `react-mcp` would reuse 60% of the core.
+- **Live contracts:** linking `HttpCall` to the real backend (Nest, Spring) when both
+  repos are available in the same workspace.
 
 ---
 
-## 15. Resumen ejecutivo
+## 15. Executive summary
 
-1. Extraer el grafo Angular del compilador, no reinventarlo.
-2. Derivar siempre; nunca recordar. Cache por hash, nunca memoria editable.
-3. Consultas e impacto primero; mutaciones solo tras demostrar confiabilidad con números.
-4. Cada hecho con confianza y proveniencia; lo desconocido se declara desconocido.
-5. Reglas de arquitectura declarativas en el repo del usuario, importando las que ya existan.
-6. Cinco fases con criterios de salida medibles; la Fase 5 es condicional.
+1. Extract the Angular graph from the compiler, don't reinvent it.
+2. Always derive; never remember. Hash-based cache, never editable memory.
+3. Queries and impact first; mutations only after proving reliability with numbers.
+4. Every fact with confidence and provenance; the unknown is declared unknown.
+5. Declarative architecture rules in the user's repo, importing the ones that already exist.
+6. Five phases with measurable exit criteria; Phase 5 is conditional.
