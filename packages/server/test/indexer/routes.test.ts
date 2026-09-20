@@ -28,8 +28,8 @@ function edgesOfKind(edges: readonly GraphEdge[], kind: GraphEdge['kind']): Grap
   return edges.filter((e) => e.kind === kind);
 }
 
-describe('extractRoutes: declaracion de arrays de rutas', () => {
-  it('extrae un array de rutas declarado como literal (const routes: Routes = [...])', () => {
+describe('extractRoutes: route array declarations', () => {
+  it('extracts a route array declared as a literal (const routes: Routes = [...])', () => {
     const { nodes } = extract(
       'src/app/app.routes.ts',
       `
@@ -45,7 +45,7 @@ describe('extractRoutes: declaracion de arrays de rutas', () => {
     expect(routes[0]?.routePath).toBe('');
   });
 
-  it('extrae las rutas pasadas a provideRouter(...) sin duplicar el array declarado por separado', () => {
+  it('extracts the routes passed to provideRouter(...) without duplicating the separately declared array', () => {
     const { nodes } = extract(
       'src/app/app.config.ts',
       `
@@ -67,7 +67,7 @@ describe('extractRoutes: declaracion de arrays de rutas', () => {
     expect(routes[0]?.componentRef).toBe('src/app/home/home.component.ts#HomeComponent');
   });
 
-  it('extrae las rutas pasadas a RouterModule.forRoot(...)', () => {
+  it('extracts the routes passed to RouterModule.forRoot(...)', () => {
     const { nodes } = extract(
       'src/app/app-routing.module.ts',
       `
@@ -91,7 +91,7 @@ describe('extractRoutes: declaracion de arrays de rutas', () => {
     expect(routes[0]?.routePath).toBe('home');
   });
 
-  it('extrae las rutas pasadas a RouterModule.forChild(...)', () => {
+  it('extracts the routes passed to RouterModule.forChild(...)', () => {
     const { nodes } = extract(
       'src/app/admin/admin-routing.module.ts',
       `
@@ -114,7 +114,7 @@ describe('extractRoutes: declaracion de arrays de rutas', () => {
     expect(routes[0]?.routePath).toBe('users');
   });
 
-  it('resuelve component: hacia una clase declarada localmente en el mismo archivo, con confidence certain', () => {
+  it('resolves component: to a class declared locally in the same file, with confidence certain', () => {
     const { nodes, edges } = extract(
       'src/app/app.routes.ts',
       `
@@ -136,8 +136,8 @@ describe('extractRoutes: declaracion de arrays de rutas', () => {
   });
 });
 
-describe('extractRoutes: loadComponent y loadChildren con import() dinamico', () => {
-  it('resuelve loadComponent con () => import(...).then(m => m.X) hasta el simbolo destino', () => {
+describe('extractRoutes: loadComponent and loadChildren with dynamic import()', () => {
+  it('resolves loadComponent with () => import(...).then(m => m.X) down to the target symbol', () => {
     const { nodes, edges } = extract(
       'src/app/app.routes.ts',
       `
@@ -165,7 +165,7 @@ describe('extractRoutes: loadComponent y loadChildren con import() dinamico', ()
     expect(routesTo[0]?.confidence).toBe('inferred');
   });
 
-  it('resuelve loadComponent con destructuring en el callback: .then(({ X }) => X)', () => {
+  it('resolves loadComponent with destructuring in the callback: .then(({ X }) => X)', () => {
     const { nodes } = extract(
       'src/app/app.routes.ts',
       `
@@ -183,7 +183,7 @@ describe('extractRoutes: loadComponent y loadChildren con import() dinamico', ()
     expect(route?.componentRef).toBe('src/app/admin/admin.component.ts#AdminComponent');
   });
 
-  it('resuelve loadComponent con async/await: async () => (await import(...)).X', () => {
+  it('resolves loadComponent with async/await: async () => (await import(...)).X', () => {
     const { nodes } = extract(
       'src/app/app.routes.ts',
       `
@@ -201,7 +201,7 @@ describe('extractRoutes: loadComponent y loadChildren con import() dinamico', ()
     expect(route?.componentRef).toBe('src/app/admin/admin.component.ts#AdminComponent');
   });
 
-  it('resuelve loadComponent sin .then() como la exportacion default del modulo', () => {
+  it('resolves loadComponent without .then() as the module default export', () => {
     const { nodes } = extract(
       'src/app/app.routes.ts',
       `
@@ -216,7 +216,7 @@ describe('extractRoutes: loadComponent y loadChildren con import() dinamico', ()
     expect(route?.componentRef).toBe('src/app/admin/admin.component.ts#default');
   });
 
-  it('resuelve loadChildren con import() sin crear una arista routes_to (el destino no es un Component)', () => {
+  it('resolves loadChildren with import() without creating a routes_to edge (the target is not a Component)', () => {
     const { nodes, edges } = extract(
       'src/app/app.routes.ts',
       `
@@ -240,7 +240,7 @@ describe('extractRoutes: loadComponent y loadChildren con import() dinamico', ()
     expect(edgesOfKind(edges, 'routes_to')).toHaveLength(0);
   });
 
-  it('marca confidence unknown y guarda el texto del especificador cuando no es estatico', () => {
+  it('marks confidence unknown and keeps the specifier text when it is not static', () => {
     const { nodes } = extract(
       'src/app/app.routes.ts',
       `
@@ -261,7 +261,7 @@ describe('extractRoutes: loadComponent y loadChildren con import() dinamico', ()
     expect(route?.componentRef).toBeUndefined();
   });
 
-  it('marca confidence unknown cuando el callback de .then() no se puede interpretar', () => {
+  it('marks confidence unknown when the .then() callback cannot be interpreted', () => {
     const { nodes } = extract(
       'src/app/app.routes.ts',
       `
@@ -285,8 +285,8 @@ describe('extractRoutes: loadComponent y loadChildren con import() dinamico', ()
   });
 });
 
-describe('extractRoutes: children anidados', () => {
-  it('produce nodos Route y aristas child_of para rutas hijas anidadas', () => {
+describe('extractRoutes: nested children', () => {
+  it('produces Route nodes and child_of edges for nested child routes', () => {
     const { nodes, edges } = extract(
       'src/app/app.routes.ts',
       `
@@ -322,7 +322,7 @@ describe('extractRoutes: children anidados', () => {
   });
 });
 
-describe('extractRoutes: guards y resolvers, funcionales y de clase', () => {
+describe('extractRoutes: guards and resolvers, functional and class-based', () => {
   const source = `
     import { Routes } from '@angular/router';
     import { AdminGuard } from './guards/admin.guard';
@@ -352,7 +352,7 @@ describe('extractRoutes: guards y resolvers, funcionales y de clase', () => {
     ];
   `;
 
-  it('detecta guards funcionales y de clase, locales e importados, con la confidence correcta', () => {
+  it('detects functional and class-based guards, local and imported, with the right confidence', () => {
     const { nodes, edges } = extract('src/app/app.routes.ts', source);
     const guards = guardNodes(nodes);
     const route = routeNodes(nodes)[0];
@@ -408,7 +408,7 @@ describe('extractRoutes: guards y resolvers, funcionales y de clase', () => {
     ).toBe('unknown');
   });
 
-  it('detecta resolvers funcionales y de clase a partir del objeto resolve: {...}', () => {
+  it('detects functional and class-based resolvers from the resolve: {...} object', () => {
     const { nodes, edges } = extract('src/app/app.routes.ts', source);
     const resolvers = resolverNodes(nodes);
     const route = routeNodes(nodes)[0];
@@ -429,8 +429,8 @@ describe('extractRoutes: guards y resolvers, funcionales y de clase', () => {
   });
 });
 
-describe('extractRoutes: data de la ruta', () => {
-  it('evalua propiedades literales de data', () => {
+describe('extractRoutes: route data', () => {
+  it('evaluates literal data properties', () => {
     const { nodes } = extract(
       'src/app/app.routes.ts',
       `

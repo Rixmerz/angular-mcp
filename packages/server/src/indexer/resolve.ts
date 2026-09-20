@@ -1,11 +1,11 @@
 /**
- * Resolucion de `typescript` y `@angular/compiler` desde el node_modules del
- * PROYECTO ANALIZADO (no del servidor). Ver docs/PLAN.md, seccion 4.2 y
- * riesgo R1: el parser de templates cambia entre versiones mayores de
- * Angular, asi que usar una version distinta a la del proyecto produce
- * falsos errores. Por eso nunca se importa `typescript` ni
- * `@angular/compiler` a nivel de modulo aqui: se cargan en runtime con
- * `createRequire` anclado a la raiz del proyecto.
+ * Resolution of `typescript` and `@angular/compiler` from the node_modules of
+ * the ANALYZED PROJECT (not the server's). See docs/PLAN.md, section 4.2 and
+ * risk R1: the template parser changes between Angular major versions, so using
+ * a version other than the project's produces spurious errors. That is why
+ * neither `typescript` nor `@angular/compiler` is ever imported at module level
+ * here: they are loaded at runtime with `createRequire` anchored to the project
+ * root.
  */
 
 import { createRequire } from 'node:module';
@@ -13,7 +13,7 @@ import { join } from 'node:path';
 
 import type * as TS from 'typescript';
 
-/** Version mayor y version completa de Angular, leida de `@angular/compiler`. */
+/** Angular major version and full version, read from `@angular/compiler`. */
 export interface AngularVersionInfo {
   readonly full: string;
   readonly major: number;
@@ -22,14 +22,14 @@ export interface AngularVersionInfo {
 export interface ResolvedProjectDependencies {
   readonly typescript: typeof TS;
   readonly typescriptVersion: string;
-  /** Modulo de `@angular/compiler` tal como lo expone el proyecto analizado. */
+  /** The `@angular/compiler` module exactly as the analyzed project exposes it. */
   readonly angularCompiler: unknown;
   readonly angularVersion: AngularVersionInfo;
 }
 
 /**
- * Falta una dependencia obligatoria en el proyecto analizado. El mensaje
- * siempre dice exactamente que instalar (nunca "algo salio mal").
+ * A required dependency is missing in the analyzed project. The message always
+ * states exactly what to install (never just "something went wrong").
  */
 export class MissingDependencyError extends Error {
   readonly packageName: string;
@@ -37,8 +37,8 @@ export class MissingDependencyError extends Error {
 
   constructor(packageName: string, projectRoot: string, installCommand: string) {
     super(
-      `No se encontro '${packageName}' en el node_modules de "${projectRoot}". ` +
-        `Este proyecto no parece tener Angular instalado. Instala la dependencia con:\n  ${installCommand}`,
+      `Could not find '${packageName}' in the node_modules of "${projectRoot}". ` +
+        `This project does not appear to have Angular installed. Install the dependency with:\n  ${installCommand}`,
     );
     this.name = 'MissingDependencyError';
     this.packageName = packageName;
@@ -71,10 +71,10 @@ interface AngularCompilerModule {
 }
 
 /**
- * Resuelve `typescript` y `@angular/compiler` desde el node_modules de
- * `projectRoot`, usando la misma resolucion de Node que usaria el propio
- * proyecto. Lanza `MissingDependencyError` con el comando exacto a correr si
- * falta alguna de las dos.
+ * Resolves `typescript` and `@angular/compiler` from the node_modules of
+ * `projectRoot`, using the same Node resolution the project itself would use.
+ * Throws `MissingDependencyError`, with the exact command to run, when either
+ * one is missing.
  */
 export function resolveProjectDependencies(projectRoot: string): ResolvedProjectDependencies {
   const typescript = requireFromProject<typeof TS>(
@@ -92,15 +92,15 @@ export function resolveProjectDependencies(projectRoot: string): ResolvedProject
   const versionExport = angularCompiler.VERSION;
   if (!versionExport || typeof versionExport.full !== 'string') {
     throw new Error(
-      `'@angular/compiler' en "${projectRoot}" no expone 'VERSION'. ` +
-        'No se pudo detectar la version mayor de Angular instalada.',
+      `'@angular/compiler' in "${projectRoot}" does not expose 'VERSION'. ` +
+        'The installed Angular major version could not be detected.',
     );
   }
 
   const major = Number.parseInt(versionExport.major, 10);
   if (Number.isNaN(major)) {
     throw new Error(
-      `'@angular/compiler' en "${projectRoot}" reporta una version mayor invalida: "${versionExport.major}".`,
+      `'@angular/compiler' in "${projectRoot}" reports an invalid major version: "${versionExport.major}".`,
     );
   }
 

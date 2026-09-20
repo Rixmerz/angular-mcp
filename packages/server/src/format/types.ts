@@ -1,18 +1,17 @@
 /**
- * Tipos de la capa de formato. Ver docs/PLAN.md, seccion 6 y riesgo R6.
+ * Types for the formatting layer. See docs/PLAN.md, section 6 and risk R6.
  *
- * Las herramientas MCP no formatean directamente sus nodos/aristas del
- * grafo: las reducen a `Fact[]`, la forma comun que esta capa pagina,
- * renderiza y trunca. Esto mantiene la logica de paginacion/truncado
- * independiente de cada herramienta.
+ * MCP tools do not format their graph nodes/edges directly: they reduce them to
+ * `Fact[]`, the common shape this layer paginates, renders and truncates. That
+ * keeps the pagination/truncation logic independent of each tool.
  */
 
 import type { Confidence } from '../graph/model.js';
 
 /**
- * Proveniencia de un hecho renderizado. `line`/`column` son opcionales
- * porque algunos hechos (por ejemplo un nodo File) solo tienen archivo,
- * pero `file` nunca se omite (R7: nunca omitir el archivo).
+ * Provenance of a rendered fact. `line`/`column` are optional because some
+ * facts (a File node, for example) only have a file, but `file` is never
+ * omitted (R7: never omit the file).
  */
 export interface FactProvenance {
   readonly file: string;
@@ -21,9 +20,9 @@ export interface FactProvenance {
 }
 
 /**
- * Un hecho individual listo para renderizar: el resumen humano, de donde
- * salio y que tan seguro es. `detail` lleva la forma completa para el
- * formato JSON; `markdown.ts` la ignora.
+ * A single fact ready to render: the human-readable summary, where it came from
+ * and how certain it is. `detail` carries the full shape for the JSON format;
+ * `markdown.ts` ignores it.
  */
 export interface Fact {
   readonly kind: string;

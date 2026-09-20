@@ -1,28 +1,29 @@
 /**
- * Extractor de `@NgModule`. Ver docs/PLAN.md, secciones 5.1, 5.2 y 9.1.
+ * `@NgModule` extractor. See docs/PLAN.md, sections 5.1, 5.2 and 9.1.
  *
- * Recorre un `ts.SourceFile` buscando clases decoradas con `@NgModule`
- * (importado de `@angular/core`, con alias respetado) y emite:
+ * Walks a `ts.SourceFile` looking for classes decorated with `@NgModule`
+ * (imported from `@angular/core`, honoring aliases) and emits:
  *
- *  - Un nodo `NgModule` con `declarations`/`imports`/`exports`/`providers`
- *    tal como aparecen en el decorador (texto fuente de cada elemento): esa
- *    es la unica fuente de verdad para esos cuatro atributos, ver el
- *    comentario de `NgModuleNode` en graph/model.ts.
- *  - Aristas `imports` (NgModule -> Component|Directive|Pipe|NgModule) por
- *    cada elemento identificador simple del array `imports`.
- *  - Aristas `provides` (NgModule -> Service) por cada elemento del array
- *    `providers`: un identificador simple, o el token de un provider objeto
+ *  - An `NgModule` node with `declarations`/`imports`/`exports`/`providers`
+ *    exactly as they appear in the decorator (the source text of each element):
+ *    that is the only source of truth for those four attributes, see the
+ *    comment on `NgModuleNode` in graph/model.ts.
+ *  - `imports` edges (NgModule -> Component|Directive|Pipe|NgModule) for every
+ *    plain identifier element of the `imports` array.
+ *  - `provides` edges (NgModule -> Service) for every element of the
+ *    `providers` array: a plain identifier, or the token of an object provider
  *    (`{ provide: TOKEN, ... }`).
  *
- * Elementos que no son un identificador simple (p.ej. `RouterModule.forRoot(routes)`,
- * un provider construido con `useFactory`, un spread) quedan en el atributo
- * de texto del nodo pero no producen arista: resolverlos requeriria
- * evaluacion que esta fuera de alcance (R3, nunca se adivina un destino).
+ * Elements that are not a plain identifier (e.g. `RouterModule.forRoot(routes)`,
+ * a provider built with `useFactory`, a spread) still appear in the node's text
+ * attribute but produce no edge: resolving them would require evaluation that
+ * is out of scope (R3, a target is never guessed).
  *
- * La resolucion de un nombre a `NodeId` nunca usa el type checker (solo AST
- * del propio archivo), igual que `routes.ts`/`di.ts`.
+ * Resolving a name to a `NodeId` never uses the type checker (only the AST of
+ * the file itself), just like `routes.ts`/`di.ts`.
  *
- * Puro: no importa `typescript` a nivel de modulo, no toca el filesystem.
+ * Pure: it does not import `typescript` at module level and never touches the
+ * filesystem.
  */
 
 import type * as TS from 'typescript';
@@ -37,7 +38,7 @@ export interface ExtractModulesResult {
 
 interface ImportBinding {
   readonly moduleSpecifier: string;
-  /** Nombre real exportado por el modulo origen (antes de un `as alias`). */
+  /** The real name exported by the source module (before any `as alias`). */
   readonly importedName: string;
 }
 
@@ -50,7 +51,7 @@ interface ModulesCtx {
 }
 
 // ---------------------------------------------------------------------------
-// Recoleccion: declaraciones locales, imports, decorador @NgModule
+// Collection: local declarations, imports, the @NgModule decorator
 // ---------------------------------------------------------------------------
 
 function collectLocalDeclNames(typescript: typeof TS, sourceFile: TS.SourceFile): ReadonlySet<string> {
@@ -171,7 +172,7 @@ function collectObjectProps(
 }
 
 // ---------------------------------------------------------------------------
-// Resolucion de nombre -> NodeId (igual heuristica que routes.ts/di.ts)
+// Name -> NodeId resolution (same heuristic as routes.ts/di.ts)
 // ---------------------------------------------------------------------------
 
 interface ResolvedTarget {
@@ -218,7 +219,7 @@ function provenanceOf(ctx: ModulesCtx, node: TS.Node): Provenance {
 }
 
 // ---------------------------------------------------------------------------
-// Atributos del nodo NgModule (texto fuente tal como aparece en el decorador)
+// NgModule node attributes (source text exactly as it appears in the decorator)
 // ---------------------------------------------------------------------------
 
 function readSpecifierArray(
@@ -231,7 +232,7 @@ function readSpecifierArray(
 }
 
 // ---------------------------------------------------------------------------
-// Aristas `imports` / `provides`
+// `imports` / `provides` edges
 // ---------------------------------------------------------------------------
 
 function collectImportsEdges(
@@ -308,13 +309,13 @@ function collectProvidesEdges(
 }
 
 // ---------------------------------------------------------------------------
-// Punto de entrada
+// Entry point
 // ---------------------------------------------------------------------------
 
 /**
- * Extrae el nodo `NgModule` y sus aristas `imports`/`provides` de cada clase
- * decorada con `@NgModule` en `sourceFile`. `relativePath` es la ruta
- * relativa a la raiz del proyecto analizado.
+ * Extracts the `NgModule` node and its `imports`/`provides` edges for every
+ * class decorated with `@NgModule` in `sourceFile`. `relativePath` is the path
+ * relative to the root of the analyzed project.
  */
 export function extractModules(
   typescript: typeof TS,

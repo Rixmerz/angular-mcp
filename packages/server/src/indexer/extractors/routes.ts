@@ -1,18 +1,18 @@
 /**
- * Extractor de rutas. Ver docs/PLAN.md, secciones 5.1, 5.2 y 9.1.
+ * Route extractor. See docs/PLAN.md, sections 5.1, 5.2 and 9.1.
  *
- * Reconoce arrays de rutas declarados como literal (`const routes: Routes =
- * [...]`), pasados a `provideRouter(...)`, o a `RouterModule.forRoot(...)` /
- * `RouterModule.forChild(...)`. Por cada ruta emite un nodo `Route` (path,
- * data, lazy) y las aristas `routes_to`, `child_of`, `guarded_by` y
- * `resolves_with`.
+ * Recognizes route arrays declared as a literal (`const routes: Routes =
+ * [...]`), passed to `provideRouter(...)`, or to `RouterModule.forRoot(...)` /
+ * `RouterModule.forChild(...)`. For each route it emits a `Route` node (path,
+ * data, lazy) along with the `routes_to`, `child_of`, `guarded_by` and
+ * `resolves_with` edges.
  *
- * Puro: no importa `typescript` a nivel de modulo (recibe el modulo del
- * proyecto analizado como parametro, igual que `program.ts`/`resolve.ts`) y
- * no toca el filesystem. La resolucion de un especificador de import a un
- * NodeId es una heuristica de posicion de archivo (join relativo +
- * extension `.ts`), nunca se verifica contra disco: por eso nunca es
- * `certain`, siempre `inferred` cuando se pudo derivar y `unknown` cuando no.
+ * Pure: it does not import `typescript` at module level (the analyzed project's
+ * module is passed in as a parameter, like in `program.ts`/`resolve.ts`) and it
+ * never touches the filesystem. Resolving an import specifier to a NodeId is a
+ * file-location heuristic (relative join + `.ts` extension) and is never
+ * checked against disk: that is why it is never `certain` — always `inferred`
+ * when it could be derived, and `unknown` when it could not.
  */
 
 import type * as TS from 'typescript';
@@ -42,7 +42,7 @@ const GUARD_PROPERTY_NAMES = ['canActivate', 'canActivateChild', 'canDeactivate'
 
 interface ImportBinding {
   readonly moduleSpecifier: string;
-  /** Nombre real exportado por el modulo origen (antes de un `as alias`). */
+  /** The real name exported by the source module (before any `as alias`). */
   readonly importedName: string;
 }
 
@@ -57,7 +57,7 @@ interface ExtractCtx {
   readonly edges: GraphEdge[];
 }
 
-/** Extrae los nodos `Route` y sus aristas de un `ts.SourceFile`. */
+/** Extracts the `Route` nodes and their edges from a `ts.SourceFile`. */
 export function extractRoutes(typescript: typeof TS, sourceFile: TS.SourceFile): ExtractRoutesResult {
   const ctx: ExtractCtx = {
     typescript,
@@ -88,7 +88,7 @@ export function extractRoutes(typescript: typeof TS, sourceFile: TS.SourceFile):
 }
 
 // ---------------------------------------------------------------------------
-// Descubrimiento de arrays de rutas
+// Route array discovery
 // ---------------------------------------------------------------------------
 
 function collectDeclarations(node: TS.Node, ctx: ExtractCtx): void {
@@ -178,7 +178,7 @@ function looksLikeRouteArray(arr: TS.ArrayLiteralExpression, ts: typeof TS): boo
 }
 
 // ---------------------------------------------------------------------------
-// Extraccion de una ruta individual
+// Extraction of a single route
 // ---------------------------------------------------------------------------
 
 function extractRouteObject(obj: TS.ObjectLiteralExpression, parentId: NodeId | undefined, ctx: ExtractCtx): NodeId {
@@ -321,7 +321,7 @@ function extractRouteObject(obj: TS.ObjectLiteralExpression, parentId: NodeId | 
 }
 
 // ---------------------------------------------------------------------------
-// Resolucion de simbolos (component / guards / resolvers)
+// Symbol resolution (component / guards / resolvers)
 // ---------------------------------------------------------------------------
 
 interface SymbolRef {
@@ -331,9 +331,9 @@ interface SymbolRef {
 }
 
 /**
- * Resuelve un identificador declarado localmente en el archivo, o importado
- * de un especificador relativo estatico, a un NodeId. Nunca usa el type
- * checker: solo AST del propio archivo.
+ * Resolves an identifier declared locally in the file, or imported from a
+ * static relative specifier, to a NodeId. It never uses the type checker: only
+ * the AST of the file itself.
  */
 function resolveSymbolRef(name: string, ctx: ExtractCtx): SymbolRef | undefined {
   const localKind = ctx.localDecls.get(name);
@@ -385,11 +385,11 @@ function resolveGuardOrResolverElement(
 }
 
 /**
- * Resuelve un especificador relativo (`./foo`, `../bar/baz`) a una ruta
- * relativa de archivo `.ts`, uniendola contra el directorio del archivo
- * actual. Nunca toca disco (no verifica que el archivo exista), por eso el
- * resultado siempre se trata como `inferred`, nunca `certain`. Especificadores
- * no relativos (paquetes, alias de tsconfig) no son resolubles aqui.
+ * Resolves a relative specifier (`./foo`, `../bar/baz`) to a relative `.ts`
+ * file path, joining it against the current file's directory. It never touches
+ * disk (it does not check that the file exists), which is why the result is
+ * always treated as `inferred`, never `certain`. Non-relative specifiers
+ * (packages, tsconfig path aliases) cannot be resolved here.
  */
 function resolveRelativeSpecifier(currentFilePath: string, specifier: string): string | undefined {
   if (!specifier.startsWith('.')) return undefined;
@@ -409,7 +409,7 @@ function resolveRelativeSpecifier(currentFilePath: string, specifier: string): s
 }
 
 // ---------------------------------------------------------------------------
-// loadComponent / loadChildren: import() dinamico
+// loadComponent / loadChildren: dynamic import()
 // ---------------------------------------------------------------------------
 
 interface LazyAnalysis {
@@ -419,15 +419,14 @@ interface LazyAnalysis {
 }
 
 /**
- * Analiza el valor de `loadComponent`/`loadChildren`: una funcion que
- * devuelve (directa o indirectamente via `.then`) un `import()` dinamico.
- * Reconoce:
- *   () => import('./x')                        -> exporta 'default'
- *   () => import('./x').then(m => m.X)         -> exporta 'X'
- *   () => import('./x').then(({ X }) => X)     -> exporta 'X'
- *   async () => (await import('./x')).X        -> exporta 'X'
- * Cuando el especificador no es un string literal, o la forma no se
- * reconoce, devuelve confidence 'unknown' con el texto fuente disponible.
+ * Analyzes the value of `loadComponent`/`loadChildren`: a function that returns
+ * (directly or indirectly via `.then`) a dynamic `import()`. It recognizes:
+ *   () => import('./x')                        -> exports 'default'
+ *   () => import('./x').then(m => m.X)         -> exports 'X'
+ *   () => import('./x').then(({ X }) => X)     -> exports 'X'
+ *   async () => (await import('./x')).X        -> exports 'X'
+ * When the specifier is not a string literal, or the shape is not recognized,
+ * it returns confidence 'unknown' with whatever source text is available.
  */
 function analyzeLazyLoad(propValue: TS.Expression, ctx: ExtractCtx): LazyAnalysis {
   const ts = ctx.typescript;
@@ -545,7 +544,7 @@ function extractReturnedExpression(body: TS.ConciseBody, ts: typeof TS): TS.Expr
   return body;
 }
 
-/** `import(...)` dinamico: una CallExpression cuyo callee es la palabra clave `import`. */
+/** Dynamic `import(...)`: a CallExpression whose callee is the `import` keyword. */
 function isDynamicImportCall(node: TS.CallExpression, ts: typeof TS): boolean {
   return node.expression.kind === ts.SyntaxKind.ImportKeyword;
 }
@@ -566,7 +565,7 @@ function unwrapAwaitAndParens(expr: TS.Expression, ts: typeof TS): TS.Expression
 }
 
 // ---------------------------------------------------------------------------
-// Utilidades generales
+// General helpers
 // ---------------------------------------------------------------------------
 
 function collectPropertyAssignments(obj: TS.ObjectLiteralExpression, ts: typeof TS): Map<string, TS.Expression> {

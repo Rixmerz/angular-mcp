@@ -6,7 +6,7 @@ import type { Fact } from '../../src/format/types.js';
 function facts(n: number): Fact[] {
   return Array.from({ length: n }, (_, i) => ({
     kind: 'Component',
-    summary: `Componente ${i}`,
+    summary: `Component ${i}`,
     provenance: { file: `src/app/c${i}.component.ts`, line: 1 },
     confidence: 'certain' as const,
   }));
@@ -51,7 +51,7 @@ describe('formatFacts', () => {
     if (result.format !== 'markdown') throw new Error('expected markdown');
     expect(result.truncated).toBe(true);
     expect(Buffer.byteLength(result.text, 'utf8')).toBeLessThanOrEqual(8 * 1024);
-    expect(result.text).toMatch(/truncad/i);
+    expect(result.text).toMatch(/truncat/i);
   });
 
   it('reports has_more/next_offset consistently across markdown and json for the same page', () => {

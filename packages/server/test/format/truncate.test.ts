@@ -4,8 +4,8 @@ import { MAX_MARKDOWN_BYTES, truncateMarkdown } from '../../src/format/truncate.
 
 describe('truncateMarkdown', () => {
   it('leaves short text untouched and reports truncated: false', () => {
-    const result = truncateMarkdown('hola', { shownCount: 1, totalCount: 1, nextOffset: null });
-    expect(result).toEqual({ text: 'hola', truncated: false });
+    const result = truncateMarkdown('hello', { shownCount: 1, totalCount: 1, nextOffset: null });
+    expect(result).toEqual({ text: 'hello', truncated: false });
   });
 
   it('truncates text over the byte budget and declares it', () => {
@@ -15,7 +15,7 @@ describe('truncateMarkdown', () => {
 
     expect(result.truncated).toBe(true);
     expect(Buffer.byteLength(result.text, 'utf8')).toBeLessThanOrEqual(MAX_MARKDOWN_BYTES);
-    expect(result.text).toMatch(/truncad/i);
+    expect(result.text).toMatch(/truncat/i);
   });
 
   it('explains how to request the rest when there is a next_offset', () => {

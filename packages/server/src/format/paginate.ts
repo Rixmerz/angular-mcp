@@ -1,6 +1,6 @@
 /**
- * Paginacion generica. Ver docs/PLAN.md, seccion 6: "Toda herramienta que
- * lista acepta `limit` (default 20), `offset`" y riesgo R6.
+ * Generic pagination. See docs/PLAN.md, section 6: "every tool that lists
+ * accepts `limit` (default 20) and `offset`", and risk R6.
  */
 
 export const DEFAULT_LIMIT = 20;
@@ -22,7 +22,7 @@ export interface Page<T> extends Pagination {
   readonly items: readonly T[];
 }
 
-/** Aplica limit/offset a `items` y calcula los metadatos de paginacion. */
+/** Applies limit/offset to `items` and computes the pagination metadata. */
 export function paginate<T>(items: readonly T[], params: PageParams = {}): Page<T> {
   const limit = normalizeNonNegativeInt(params.limit, DEFAULT_LIMIT, 'limit');
   const offset = normalizeNonNegativeInt(params.offset, 0, 'offset');
@@ -47,7 +47,7 @@ function normalizeNonNegativeInt(value: number | undefined, fallback: number, na
     return fallback;
   }
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`paginate: ${name} debe ser un entero >= 0, recibido ${value}`);
+    throw new Error(`paginate: ${name} must be an integer >= 0, received ${value}`);
   }
   return value;
 }

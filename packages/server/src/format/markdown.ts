@@ -1,7 +1,7 @@
 /**
- * Renderizado markdown, resumido por defecto. Ver docs/PLAN.md, seccion 6
- * y riesgo R7: cada hecho muestra su proveniencia (archivo:linea) y marca
- * lo inferido, nunca omite el archivo.
+ * Markdown rendering, summarized by default. See docs/PLAN.md, section 6 and
+ * risk R7: every fact shows its provenance (file:line) and flags whatever was
+ * inferred; the file is never omitted.
  */
 
 import type { Page } from './paginate.js';
@@ -13,7 +13,7 @@ export interface MarkdownOptions {
   readonly title?: string;
 }
 
-/** Renderiza una pagina de hechos en markdown y aplica el tope de 8 KB. */
+/** Renders a page of facts as markdown and applies the 8 KB cap. */
 export function renderMarkdown(page: Page<Fact>, options: MarkdownOptions = {}): TruncateResult {
   const lines: string[] = [];
   if (options.title !== undefined) {
@@ -21,7 +21,7 @@ export function renderMarkdown(page: Page<Fact>, options: MarkdownOptions = {}):
   }
 
   if (page.items.length === 0) {
-    lines.push('_Sin resultados._');
+    lines.push('_No results._');
   } else {
     for (const fact of page.items) {
       lines.push(renderFactLine(fact));
@@ -54,10 +54,10 @@ function renderProvenance(fact: Fact): string {
 
 function renderConfidenceMark(confidence: Fact['confidence']): string {
   if (confidence === 'inferred') {
-    return ' _(inferido)_';
+    return ' _(inferred)_';
   }
   if (confidence === 'unknown') {
-    return ' _(desconocido)_';
+    return ' _(unknown)_';
   }
   return '';
 }
@@ -65,6 +65,6 @@ function renderConfidenceMark(confidence: Fact['confidence']): string {
 function renderPaginationFooter(page: Page<Fact>): string {
   const shown = page.items.length;
   const range = shown === 0 ? '0' : `${page.offset + 1}-${page.offset + shown}`;
-  const more = page.has_more ? ` Pide mas con \`offset=${page.next_offset}\`.` : '';
-  return `_Mostrando ${range} de ${page.total_count}._${more}`;
+  const more = page.has_more ? ` Request more with \`offset=${page.next_offset}\`.` : '';
+  return `_Showing ${range} of ${page.total_count}._${more}`;
 }

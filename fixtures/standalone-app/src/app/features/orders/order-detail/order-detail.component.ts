@@ -5,9 +5,9 @@ import { Component, computed, effect, inject, input, signal } from '@angular/cor
 import { environment } from '../../../../environments/environment';
 import { Order } from '../../../core/models/order.model';
 
-// VIOLACION PLANTADA: este componente llama a HttpClient directamente en vez
-// de delegar en OrderService. Existe a proposito para que angular_check_rules
-// detecte la infraccion de la regla "no-http-in-components" (ver docs/PLAN.md, 9.3).
+// PLANTED VIOLATION: this component calls HttpClient directly instead of
+// delegating to OrderService. It exists on purpose so that angular_check_rules
+// detects the "no-http-in-components" rule violation (see docs/PLAN.md, 9.3).
 @Component({
   selector: 'app-order-detail',
   standalone: true,

@@ -1,12 +1,12 @@
 /**
- * Carga del `ts.Program` de un proyecto, a partir de su tsconfig. Ver
- * docs/PLAN.md, seccion 4.3: solo API publica de TypeScript (`ts.Program`,
- * type checker), nunca `NgtscProgram` ni `TemplateTypeChecker` (riesgo R1,
- * excluidos explicitamente de la v1).
+ * Loading of a project's `ts.Program` from its tsconfig. See docs/PLAN.md,
+ * section 4.3: public TypeScript API only (`ts.Program`, the type checker),
+ * never `NgtscProgram` nor `TemplateTypeChecker` (risk R1, explicitly out of
+ * scope for v1).
  *
- * Recibe el modulo `typescript` ya resuelto (ver `resolve.ts`) en vez de
- * importarlo el mismo: debe ser siempre el `typescript` del proyecto
- * analizado, nunca el del servidor.
+ * It receives the already-resolved `typescript` module (see `resolve.ts`)
+ * instead of importing it itself: it must always be the analyzed project's
+ * `typescript`, never the server's.
  */
 
 import { dirname } from 'node:path';
@@ -22,12 +22,12 @@ export interface LoadedProgram {
   readonly options: TS.CompilerOptions;
 }
 
-/** Crea un `ts.Program` a partir de un tsconfig.json y expone su type checker. */
+/** Creates a `ts.Program` from a tsconfig.json and exposes its type checker. */
 export function createProjectProgram(typescript: typeof TS, tsConfigPath: string): LoadedProgram {
   const configFile = typescript.readConfigFile(tsConfigPath, typescript.sys.readFile);
   if (configFile.error) {
     throw new Error(
-      `No se pudo leer "${tsConfigPath}": ` +
+      `Could not read "${tsConfigPath}": ` +
         typescript.flattenDiagnosticMessageText(configFile.error.messageText, '\n'),
     );
   }
@@ -42,7 +42,7 @@ export function createProjectProgram(typescript: typeof TS, tsConfigPath: string
     const messages = parsed.errors
       .map((diagnostic) => typescript.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
       .join('\n');
-    throw new Error(`Configuracion invalida en "${tsConfigPath}":\n${messages}`);
+    throw new Error(`Invalid configuration in "${tsConfigPath}":\n${messages}`);
   }
 
   const program = typescript.createProgram({
@@ -60,14 +60,14 @@ export function createProjectProgram(typescript: typeof TS, tsConfigPath: string
 }
 
 /**
- * Igual que `createProjectProgram`, pero a partir de un `WorkspaceProject`.
- * Falla con un mensaje accionable si el proyecto no tiene tsconfig detectado.
+ * Same as `createProjectProgram`, but starting from a `WorkspaceProject`. Fails
+ * with an actionable message when no tsconfig was detected for the project.
  */
 export function loadProgramForProject(typescript: typeof TS, project: WorkspaceProject): LoadedProgram {
   if (!project.tsConfigPath) {
     throw new Error(
-      `El proyecto "${project.name}" no tiene un tsconfig detectado. ` +
-        `Revisa la seccion "architect" de angular.json, o agrega un "tsconfig.json" en "${project.root}".`,
+      `No tsconfig was detected for project "${project.name}". ` +
+        `Check the "architect" section of angular.json, or add a "tsconfig.json" in "${project.root}".`,
     );
   }
 

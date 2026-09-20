@@ -89,7 +89,7 @@ describe('ProjectGraph nodes', () => {
     const graph = new ProjectGraph();
     const node = { ...serviceNode('src/app/user.service.ts', 'UserService'), id: 'UserService' };
 
-    expect(() => graph.addNode(node)).toThrow(/ruta#simbolo/);
+    expect(() => graph.addNode(node)).toThrow(/path#symbol/);
   });
 
   it('addNode is idempotent: re-adding the same id replaces the node and its index entries', () => {
@@ -106,7 +106,7 @@ describe('ProjectGraph nodes', () => {
   });
 });
 
-describe('ProjectGraph indices (por tipo, por nombre, por archivo)', () => {
+describe('ProjectGraph indices (by kind, by name, by file)', () => {
   it('indexes by node kind', () => {
     const graph = new ProjectGraph();
     const service = serviceNode('src/app/user.service.ts', 'UserService');

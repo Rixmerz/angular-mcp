@@ -149,6 +149,6 @@ describe('findWorkspaceRoot', () => {
     const isolated = join(root, 'no-config-anywhere');
     await mkdir(isolated, { recursive: true });
 
-    await expect(findWorkspaceRoot(isolated)).rejects.toThrow(/No se encontro "angular.json" ni "package.json"/);
+    await expect(findWorkspaceRoot(isolated)).rejects.toThrow(/Could not find "angular.json" or "package.json"/);
   });
 });
