@@ -4,11 +4,11 @@
   </ul>
 </div>
 <ng-template #emptyBlock>
-  <p>Sin datos</p>
+  <p>No data</p>
 </ng-template>
 
 <div [ngSwitch]="status">
-  <p *ngSwitchCase="'ready'">Listo</p>
-  <p *ngSwitchCase="'loading'">Cargando</p>
-  <p *ngSwitchDefault>Vacio</p>
+  <p *ngSwitchCase="'ready'">Ready</p>
+  <p *ngSwitchCase="'loading'">Loading</p>
+  <p *ngSwitchDefault>Empty</p>
 </div>

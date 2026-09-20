@@ -1,7 +1,6 @@
 metadata:
   name: Build Angular MCP
-  description: 'Builds the Angular MCP server per docs/PLAN.md: template extraction, index orchestration,
-    query tools, rules engine and server wiring.'
+  description: 'Builds the Angular MCP server per docs/PLAN.md: template extraction, index orchestration, query tools, rules engine and server wiring.'
   version: 1.0.0
   type: graph
   author: Rixmerz
@@ -11,175 +10,69 @@ nodes:
   is_start: true
   is_end: true
   node_type: dag
-  prompt_injection: 'Building the Angular MCP per docs/PLAN.md.
-
+  prompt_injection: |
+    Building the Angular MCP per docs/PLAN.md.
     Every task reads the plan before writing code and honours its principles:
-
     derive instead of remember, keep the server deterministic, and carry
-
     confidence and provenance on every fact.
 
-
     LANGUAGE: all code, comments, docstrings, error messages and documentation
-
     are written in English. No Spanish anywhere in the repository.
-
-    '
   tasks:
-  - id: extract-templates
-    name: Template extractor in TypeScript
-    max_turns: 140
-    role: backend
-    complexity: high
-    ownership:
-    - packages/server/src/indexer/extractors/templates.ts
-    - packages/server/src/indexer/extractors/selectors.ts
-    - packages/server/test/indexer/templates.test.ts
-    - packages/server/test/indexer/selectors.test.ts
-    acceptance:
-    - Templates are parsed with parseTemplate from the analyzed project's compiler
-    - Interpolation, property, event, two-way and control flow bindings are classified
-    - Selectors resolve against the component scope, standalone or NgModule
-    - 'A template with a syntax error does not abort the index: parseErrors are stored'
-    prompt: "Read docs/PLAN.md sections 4.3 and 5.2, and risks R4 and R14, before\nwriting anything.\n\
-      \nImplement two files.\n\n- templates.ts: parse the template, whether in a file or inline, with\n\
-      \  parseTemplate from @angular/compiler resolved from the ANALYZED project\n  (use the existing\
-      \ src/indexer/resolve.ts). Walk the AST and emit binds\n  edges classified as: interpolation, property,\
-      \ event, two-way, modern\n  control flow @if/@for/@switch/@defer/@let, legacy structural directives\n\
-      \  *ngIf/*ngFor, pipes and #ref references.\n  If parsing fails, store parseErrors on the Template\
-      \ node and carry on.\n  Never abort the whole index because one template is broken.\n- selectors.ts:\
-      \ resolve a template tag or attribute to its Component,\n  Directive or Pipe. Scope comes from a\
-      \ standalone component's imports\n  array, or from the declarations of the NgModule that declares\
-      \ it. The\n  hybrid case, a standalone component imported from an NgModule, must\n  work. Anything\
-      \ you cannot resolve gets confidence 'unknown'.\n\nBinding types come from the component class via\
-      \ the TypeScript type\nchecker. Do NOT use TemplateTypeChecker.\n\nReuse the existing model in src/graph/model.ts\
-      \ and the extractors already\nin src/indexer/extractors/ as a style reference.\n\nLANGUAGE: write\
-      \ ALL comments, docstrings, error messages and any\ndocumentation in English. The repository is\
-      \ English-only.\n"
-    timeout_s: 2700
-  - id: indexer
-    name: Index orchestrator in TypeScript
-    max_turns: 120
-    role: backend
-    complexity: high
-    dependencies:
-    - extract-templates
-    ownership:
-    - packages/server/src/indexer/index.ts
-    - packages/server/src/indexer/incremental.ts
-    - packages/server/test/indexer/index.test.ts
-    - packages/server/test/indexer/incremental.test.ts
-    acceptance:
-    - Indexes a whole project by calling every extractor
-    - Incremental reindexing only reprocesses files whose hash changed
-    - Reports nodes per type, files processed, elapsed time and parse errors
-    - A broken file does not abort the index
-    prompt: "Read docs/PLAN.md sections 4.1 and 7 Phase 1 before writing anything.\n\nImplement the orchestrator\
-      \ that walks the project's files, calls each\nextractor already present in src/indexer/extractors/\
-      \ and builds the\nProjectGraph from src/graph/.\n\n- index.ts: full indexing of one angular.json\
-      \ project. Templates are\n  parsed on demand and cached.\n- incremental.ts: compare hashes, reindex\
-      \ only what changed, invalidate\n  the edges that originated in the affected files.\n\nReturn a\
-      \ summary: nodes per type, files, elapsed time, parse errors. A\nfile that fails is recorded and\
-      \ the walk continues.\n\nLANGUAGE: write ALL comments, docstrings, error messages and any\ndocumentation\
-      \ in English. The repository is English-only.\n"
-    timeout_s: 2400
-  - id: query-tools
-    name: Query and impact tools in TypeScript
-    max_turns: 150
-    role: backend
-    complexity: high
-    dependencies:
-    - indexer
-    ownership:
-    - packages/server/src/tools/**
-    - packages/server/test/tools/**
-    acceptance:
-    - The ten Phase 1 tools from section 6 exist
-    - Each declares a Zod input schema, an outputSchema and annotations
-    - All are readOnlyHint true
-    - angular_find_symbol always returns candidates, never guesses one
-    - angular_impact_of walks consumers and dependencies with a depth limit
-    prompt: "Read docs/PLAN.md section 6 Phase 1 in full, plus risks R7 and R13,\nbefore writing anything.\n\
-      \nImplement the ten Phase 1 tools, one per file, in src/tools/:\n\nindex_project, get_index_status,\
-      \ find_symbol, get_component,\nget_service, get_route_tree, who_uses, get_template_bindings,\nlist_http_calls,\
-      \ impact_of.\n\nAll prefixed angular_. Each one:\n- Zod input schema, with a description on every\
-      \ field.\n- A declared outputSchema.\n- Annotations: readOnlyHint true, destructiveHint false,\n\
-      \  idempotentHint true, openWorldHint false.\n- Accepts limit, offset and format where it applies,\
-      \ using the existing\n  src/format/ layer.\n- Actionable errors: what failed and what to try next.\n\
-      \nR13: a symbol id is path#name. find_symbol returns candidates. The others\nrequire the full ref\
-      \ and, given an ambiguous name, return the candidates\ninstead of choosing.\n\nR7: every fact carries\
-      \ its confidence and provenance. Each tool's\ndescription states explicitly which fields may be\
-      \ inferred.\n\nLANGUAGE: write ALL comments, docstrings, error messages and any\ndocumentation in\
-      \ English. The repository is English-only.\n"
-    timeout_s: 2700
-  - id: rules-engine
-    name: Architecture rules engine in TypeScript
-    max_turns: 150
-    role: backend
-    complexity: high
-    dependencies:
-    - indexer
-    ownership:
-    - packages/server/src/rules/**
-    - packages/server/test/rules/**
-    - docs/RULES.md
-    acceptance:
-    - Validates angular-mcp.rules.yaml against a Zod schema
-    - Evaluates layers, boundaries and constraints against the graph
-    - angular_check_rules takes a unified diff and reports violations with a suggested allowed path
-    - Imports sheriff and Nx boundary configuration without requiring duplication
-    - Zero false positives on the fixtures
-    prompt: "Read docs/PLAN.md sections 5.3 and 6 Phase 2, plus risk R10, before\nwriting anything.\n\n\
-      Implement the rules engine in src/rules/.\n\n- schema.ts: Zod schema for angular-mcp.rules.yaml\
-      \ exactly as section 5.3\n  defines it, with version, layers, boundaries, constraints and decisions.\n\
-      - load.ts: load and validate. Schema errors must be actionable and name\n  the YAML line.\n- evaluate.ts:\
-      \ resolve each file's layer by glob, evaluate boundaries over\n  the graph's edges, and the forbid\
-      \ and require constraints. Severity\n  error or warning.\n- diff.ts: parse a unified diff, map touched\
-      \ files to nodes and evaluate\n  only the affected edges.\n- importers/sheriff.ts and importers/nx.ts:\
-      \ read whatever configuration\n  the project already has and translate it into layers and boundaries.\n\
-      \  R10 says there must not be two sources of truth.\n\nAlso implement the three Phase 2 tools: angular_list_rules,\n\
-      angular_check_rules and angular_explain_layer. Put them in\nsrc/rules/tools/ and export them, because\
-      \ src/tools/ belongs to another\ntask.\n\nWrite docs/RULES.md documenting the format with examples.\n\
-      \nLANGUAGE: write ALL comments, docstrings, error messages and any\ndocumentation in English. The\
-      \ repository is English-only.\n"
-    timeout_s: 2700
   - id: server-wiring
     name: MCP server wiring in TypeScript
-    max_turns: 100
+    max_turns: 140
     role: backend
     complexity: medium
-    dependencies:
-    - query-tools
-    - rules-engine
+    dependencies: []
     ownership:
     - packages/server/src/index.ts
     - packages/server/src/server.ts
     - packages/server/src/resources/**
     - packages/server/src/prompts/**
     - packages/server/test/server.test.ts
+    - packages/server/src/tools/rules_tools.ts
+    - packages/server/src/tools/index.ts
     acceptance:
     - The server starts over stdio and lists every tool
     - No log goes to stdout
     - Exposes the angular://project/summary and angular://rules resources
     - Exposes the angular_plan_change prompt
     - Validates that every incoming path resolves inside the project root
-    prompt: "Read docs/PLAN.md section 6 Phase 4 and risk R11 before writing anything.\n\nWire the MCP\
-      \ server over stdio with the official SDK.\n\n- server.ts: register every tool from src/tools/ and\
-      \ src/rules/tools/,\n  the resources and the prompt. A thin layer, no domain logic.\n- index.ts:\
-      \ stdio entry point. All logging to stderr, never stdout.\n- resources/: angular://project/summary\
-      \ and angular://rules.\n- prompts/: angular_plan_change, the template that guides the sequence\n\
-      \  find_symbol, get_component, impact_of, find_similar, check_rules.\n\nR11, security: validate\
-      \ that any incoming path resolves inside the\nproject root. No shell: if you ever spawn a process,\
-      \ pass arguments as an\narray. No network access.\n\nLANGUAGE: write ALL comments, docstrings, error\
-      \ messages and any\ndocumentation in English. The repository is English-only.\n"
-    timeout_s: 1800
+    prompt: |
+      Read docs/PLAN.md section 6 Phase 4 and risk R11 before writing anything.
+
+      Wire the MCP server over stdio with the official SDK.
+
+      - server.ts: register every tool from src/tools/ and src/rules/tools/,
+        the resources and the prompt. A thin layer, no domain logic.
+      - The ten tools in src/tools/ are already ToolDefinition objects
+        (see src/tools/internal/define.ts): name, Zod inputSchema, Zod
+        outputSchema, annotations, run(). Register them as they are.
+      - The three Phase 2 tools in src/rules/tools/ are plain functions: they
+        were written under an ownership boundary that kept them out of
+        src/tools/. Wrap them in src/tools/rules_tools.ts with the same
+        defineTool helper, so angular_check_rules, angular_list_rules and
+        angular_explain_layer each get a Zod input schema, an outputSchema and
+        READ_ONLY_ANNOTATIONS like every other tool, and export them from
+        src/tools/index.ts. All 13 tools must register through one code path.
+      - index.ts: stdio entry point. All logging to stderr, never stdout.
+      - resources/: angular://project/summary and angular://rules.
+      - prompts/: angular_plan_change, the template that guides the sequence
+        find_symbol, get_component, impact_of, find_similar, check_rules.
+
+      R11, security: validate that any incoming path resolves inside the
+      project root. No shell: if you ever spawn a process, pass arguments as an
+      array. No network access.
+
+      LANGUAGE: write ALL comments, docstrings, error messages and any
+      documentation in English. The repository is English-only.
+    timeout_s: 2700
   - id: ground-truth
     name: Expected graph for the fixtures
     max_turns: 140
     role: test
     complexity: high
-    dependencies:
-    - indexer
     ownership:
     - fixtures/standalone-app/expected-graph.json
     - fixtures/ngmodule-app/expected-graph.json
@@ -188,36 +81,33 @@ nodes:
     - Both expected-graph.json files are written by hand from the fixture source
     - The integration test compares by structural equality, ignoring order
     - Any divergence fails the test, it does not warn
-    prompt: 'Read docs/PLAN.md sections 9.2 and 7 Phase 1 before writing anything.
-
+    prompt: |
+      Read docs/PLAN.md sections 9.2 and 7 Phase 1 before writing anything.
 
       Write the ground truth for both fixtures by READING THEIR SOURCE, not by
-
       running the indexer. The whole point of a ground truth is to be
-
       independent of the thing under test. If you generate it with the indexer,
-
       the test only proves the indexer agrees with itself.
 
-
       Then write the integration test that indexes each fixture and compares it
-
       against its expected-graph.json by structural equality, ignoring the
-
       order of nodes and edges.
 
+      Note on the indexer: an earlier attempt at this task was blocked because
+      the indexer only visited the tsconfig root file names, so it indexed
+      nothing on the fixtures' real Angular layout. That is fixed on the branch
+      (see test/indexer/real-layout.test.ts) and the indexer now walks the
+      program's transitive closure across every tsconfig a project declares.
+      Index the fixtures in place and pass an absolute cacheDir pointing at a
+      temp directory, so nothing is written into fixtures/.
 
       Report the precision and recall you measure. The Phase 1 exit criterion
-
       is precision >= 95% and recall >= 90%.
 
-
       LANGUAGE: write ALL comments, docstrings, error messages and any
-
       documentation in English. The repository is English-only.
-
-      '
     timeout_s: 2400
+    dependencies: []
   - id: review
     name: Adversarial review
     max_turns: 80
@@ -231,15 +121,34 @@ nodes:
     acceptance:
     - Every principle in section 2 of the plan is checked against the real code
     - Each breach is named with file and line
-    prompt: "Read docs/PLAN.md section 2 before reviewing.\n\nReview the code built so far against the\
-      \ plan's seven principles. In\nparticular:\n\n- P1: is any structural fact persisted that cannot\
-      \ be re-derived from the\n  code.\n- P2: is there any tool whose output is not reproducible from\
-      \ the graph,\n  that is, that contains judgement instead of facts.\n- P4: is there anywhere that\
-      \ guesses instead of reporting unknown.\n- P6: is there any tool that can return an unbounded response.\n\
-      - R11: is there any path used without validating that it falls inside the\n  project root.\n\nName\
-      \ each breach with file and line. Do not fix anything: you are\nread-only. If you find no breach\
-      \ of a principle, say so explicitly rather\nthan omitting it.\n\nLANGUAGE: write ALL comments, docstrings,\
-      \ error messages and any\ndocumentation in English. The repository is English-only.\n"
+    prompt: |
+      Read docs/PLAN.md section 2 before reviewing.
+
+      Review the code built so far against the plan's seven principles. In
+      particular:
+
+      - P1: is any structural fact persisted that cannot be re-derived from the
+        code.
+      - P2: is there any tool whose output is not reproducible from the graph,
+        that is, that contains judgement instead of facts.
+      - P4: is there anywhere that guesses instead of reporting unknown.
+      - P6: is there any tool that can return an unbounded response.
+      - R11: is there any path used without validating that it falls inside the
+        project root.
+
+      Also check the indexer's coverage honestly: src/indexer/extractors/ has
+      no Interceptor extraction at all, so a functional HttpInterceptorFn
+      registered through withInterceptors() never becomes an Interceptor node
+      even though the plan's graph includes one. Confirm or refute that, and
+      look for other node kinds declared in the model that nothing ever
+      produces.
+
+      Name each breach with file and line. Do not fix anything: you are
+      read-only. If you find no breach of a principle, say so explicitly rather
+      than omitting it.
+
+      LANGUAGE: write ALL comments, docstrings, error messages and any
+      documentation in English. The repository is English-only.
     timeout_s: 1800
   - id: docs
     name: README and tool catalogue
@@ -255,29 +164,19 @@ nodes:
     - The README explains what the server does and how to install it in Claude Code and Cursor
     - docs/TOOLS.md lists every tool with its input, output and an example
     - At least three real usage examples
-    prompt: 'Read docs/PLAN.md before writing.
-
+    prompt: |
+      Read docs/PLAN.md before writing.
 
       Update README.md: what the server solves, how to install it in Claude Code
-
       and in Cursor with the MCP configuration block, and an example session
-
       that shows the benefit.
 
-
       Write docs/TOOLS.md: every tool with its input, its output and a real
-
       example taken from the fixtures.
 
-
       Do not invent tools that do not exist in the code. Read src/tools/ and
-
       src/rules/tools/ before documenting.
 
-
       LANGUAGE: write ALL comments, docstrings, error messages and any
-
       documentation in English. The repository is English-only.
-
-      '
     timeout_s: 1200

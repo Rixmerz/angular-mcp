@@ -9,7 +9,7 @@ export interface AboutFact {
 export class AboutService {
   private readonly facts: AboutFact[] = [
     { label: 'Framework', value: 'Angular' },
-    { label: 'Arquitectura', value: 'NgModule + standalone hibrido' },
+    { label: 'Architecture', value: 'NgModule + standalone hybrid' },
     { label: 'Fixture', value: 'ngmodule-app' },
   ];
 
