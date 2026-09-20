@@ -7,6 +7,11 @@ const routes: Routes = [
     loadChildren: () =>
       import('./features/greeting/greeting.module').then((m) => m.GreetingModule),
   },
+  {
+    path: 'about',
+    loadChildren: () =>
+      import('./features/about/about.module').then((m) => m.AboutModule),
+  },
   { path: '', redirectTo: 'greeting', pathMatch: 'full' },
 ];
 

@@ -1,0 +1,14 @@
+<div *ngIf="status === 'ready'; else emptyBlock">
+  <ul>
+    <li *ngFor="let fact of facts">{{ fact.label }}: {{ fact.value }}</li>
+  </ul>
+</div>
+<ng-template #emptyBlock>
+  <p>Sin datos</p>
+</ng-template>
+
+<div [ngSwitch]="status">
+  <p *ngSwitchCase="'ready'">Listo</p>
+  <p *ngSwitchCase="'loading'">Cargando</p>
+  <p *ngSwitchDefault>Vacio</p>
+</div>
