@@ -370,11 +370,12 @@ function extractComponentNode(
   filePath: string,
   sourceFile: TS.SourceFile,
   props: ReadonlyMap<string, TS.Expression>,
+  standaloneByDefault: boolean,
   coreImports: ReadonlyMap<string, string>,
 ): ComponentNode {
   const selectorProp = props.get('selector');
   const selector = selectorProp && typescript.isStringLiteralLike(selectorProp) ? selectorProp.text : undefined;
-  const standalone = readBooleanLiteral(typescript, props.get('standalone')) ?? true;
+  const standalone = readBooleanLiteral(typescript, props.get('standalone')) ?? standaloneByDefault;
   const changeDetection = readChangeDetection(typescript, props.get('changeDetection'));
   const { templatePath, inlineTemplate } = extractTemplateInfo(typescript, props, filePath);
   const stylePaths = extractStylePaths(typescript, props, filePath);
@@ -450,11 +451,12 @@ function extractDirectiveNode(
   filePath: string,
   sourceFile: TS.SourceFile,
   props: ReadonlyMap<string, TS.Expression>,
+  standaloneByDefault: boolean,
   coreImports: ReadonlyMap<string, string>,
 ): DirectiveNode {
   const selectorProp = props.get('selector');
   const selector = selectorProp && typescript.isStringLiteralLike(selectorProp) ? selectorProp.text : undefined;
-  const standalone = readBooleanLiteral(typescript, props.get('standalone')) ?? true;
+  const standalone = readBooleanLiteral(typescript, props.get('standalone')) ?? standaloneByDefault;
 
   const { inputs, outputs } = extractDecoratorBindings(typescript, classDeclaration, coreImports, sourceFile);
 
@@ -486,17 +488,23 @@ function extractPipeNode(
   className: string,
   filePath: string,
   props: ReadonlyMap<string, TS.Expression>,
+  standaloneByDefault: boolean,
 ): PipeNode {
   const nameProp = props.get('name');
-  const name = nameProp && typescript.isStringLiteralLike(nameProp) ? nameProp.text : className;
-  const standalone = readBooleanLiteral(typescript, props.get('standalone')) ?? true;
+  // `name` is the class name, like every other node: that is what a caller
+  // searches for and what the node id is built from. The pipe's
+  // template-facing name lives in `pipeName`, which is the pipe's equivalent
+  // of a component's selector.
+  const pipeName = nameProp && typescript.isStringLiteralLike(nameProp) ? nameProp.text : className;
+  const standalone = readBooleanLiteral(typescript, props.get('standalone')) ?? standaloneByDefault;
   const pure = readBooleanLiteral(typescript, props.get('pure')) ?? true;
 
   return {
     id: makeNodeId(filePath, className),
     kind: 'Pipe',
     path: filePath,
-    name,
+    name: className,
+    pipeName,
     standalone,
     pure,
   };
@@ -539,12 +547,34 @@ function extractServiceNode(
  * `sourceFile`. `relativePath` is the path relative to the root of the analyzed
  * project (see `NodeId` in graph/model.ts).
  */
+/**
+ * Whether an omitted `standalone:` means standalone, which depends on the
+ * analyzed project's Angular version: the default flipped to `true` in v19.
+ * Guessing one answer for every project would mislabel every component in
+ * either a v18 app or a v19 one, and `standalone` is what R4's hybrid
+ * NgModule/standalone resolution turns on.
+ */
+export interface ExtractDecoratorsOptions {
+  readonly standaloneByDefault: boolean;
+}
+
+/** Angular 19 made `standalone: true` the default; before it, an omitted flag meant false. */
+export const STANDALONE_BY_DEFAULT_SINCE_MAJOR = 19;
+
+export function standaloneByDefaultFor(angularMajor: number | undefined): boolean {
+  // An unknown version is treated as a modern one, which is the safer guess
+  // for a project new enough that its version could not be read.
+  return angularMajor === undefined || angularMajor >= STANDALONE_BY_DEFAULT_SINCE_MAJOR;
+}
+
 export function extractDecorators(
   typescript: typeof TS,
   sourceFile: TS.SourceFile,
   relativePath: string,
+  options: ExtractDecoratorsOptions = { standaloneByDefault: true },
 ): ExtractDecoratorsResult {
   const filePath = normalizeRelativePath(relativePath);
+  const { standaloneByDefault } = options;
   const coreImports = collectNamedImports(typescript, sourceFile, '@angular/core');
   const nodes: (ComponentNode | DirectiveNode | PipeNode | ServiceNode)[] = [];
 
@@ -552,21 +582,25 @@ export function extractDecorators(
     const componentDecorator = findDecoratorCall(typescript, classDeclaration, coreImports, 'Component');
     if (componentDecorator) {
       const props = collectObjectProps(typescript, getDecoratorMetadata(typescript, componentDecorator));
-      nodes.push(extractComponentNode(typescript, classDeclaration, className, filePath, sourceFile, props, coreImports));
+      nodes.push(
+        extractComponentNode(typescript, classDeclaration, className, filePath, sourceFile, props, standaloneByDefault, coreImports),
+      );
       return;
     }
 
     const directiveDecorator = findDecoratorCall(typescript, classDeclaration, coreImports, 'Directive');
     if (directiveDecorator) {
       const props = collectObjectProps(typescript, getDecoratorMetadata(typescript, directiveDecorator));
-      nodes.push(extractDirectiveNode(typescript, classDeclaration, className, filePath, sourceFile, props, coreImports));
+      nodes.push(
+        extractDirectiveNode(typescript, classDeclaration, className, filePath, sourceFile, props, standaloneByDefault, coreImports),
+      );
       return;
     }
 
     const pipeDecorator = findDecoratorCall(typescript, classDeclaration, coreImports, 'Pipe');
     if (pipeDecorator) {
       const props = collectObjectProps(typescript, getDecoratorMetadata(typescript, pipeDecorator));
-      nodes.push(extractPipeNode(typescript, className, filePath, props));
+      nodes.push(extractPipeNode(typescript, className, filePath, props, standaloneByDefault));
       return;
     }
 
