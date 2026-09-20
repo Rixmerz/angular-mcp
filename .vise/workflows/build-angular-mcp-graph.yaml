@@ -19,107 +19,20 @@ nodes:
     LANGUAGE: all code, comments, docstrings, error messages and documentation
     are written in English. No Spanish anywhere in the repository.
   tasks:
-  - id: query-tools
-    name: Query and impact tools in TypeScript
-    max_turns: 150
-    role: backend
-    complexity: high
-    ownership:
-    - packages/server/src/tools/**
-    - packages/server/test/tools/**
-    acceptance:
-    - The ten Phase 1 tools from section 6 exist
-    - Each declares a Zod input schema, an outputSchema and annotations
-    - All are readOnlyHint true
-    - angular_find_symbol always returns candidates, never guesses one
-    - angular_impact_of walks consumers and dependencies with a depth limit
-    prompt: |
-      Read docs/PLAN.md section 6 Phase 1 in full, plus risks R7 and R13,
-      before writing anything.
-
-      Implement the ten Phase 1 tools, one per file, in src/tools/:
-
-      index_project, get_index_status, find_symbol, get_component,
-      get_service, get_route_tree, who_uses, get_template_bindings,
-      list_http_calls, impact_of.
-
-      All prefixed angular_. Each one:
-      - Zod input schema, with a description on every field.
-      - A declared outputSchema.
-      - Annotations: readOnlyHint true, destructiveHint false,
-        idempotentHint true, openWorldHint false.
-      - Accepts limit, offset and format where it applies, using the existing
-        src/format/ layer.
-      - Actionable errors: what failed and what to try next.
-
-      R13: a symbol id is path#name. find_symbol returns candidates. The others
-      require the full ref and, given an ambiguous name, return the candidates
-      instead of choosing.
-
-      R7: every fact carries its confidence and provenance. Each tool's
-      description states explicitly which fields may be inferred.
-
-      LANGUAGE: write ALL comments, docstrings, error messages and any
-      documentation in English. The repository is English-only.
-    timeout_s: 2700
-  - id: rules-engine
-    name: Architecture rules engine in TypeScript
-    max_turns: 150
-    role: backend
-    complexity: high
-    ownership:
-    - packages/server/src/rules/**
-    - packages/server/test/rules/**
-    - docs/RULES.md
-    acceptance:
-    - Validates angular-mcp.rules.yaml against a Zod schema
-    - Evaluates layers, boundaries and constraints against the graph
-    - angular_check_rules takes a unified diff and reports violations with a suggested allowed path
-    - Imports sheriff and Nx boundary configuration without requiring duplication
-    - Zero false positives on the fixtures
-    prompt: |
-      Read docs/PLAN.md sections 5.3 and 6 Phase 2, plus risk R10, before
-      writing anything.
-
-      Implement the rules engine in src/rules/.
-
-      - schema.ts: Zod schema for angular-mcp.rules.yaml exactly as section 5.3
-        defines it, with version, layers, boundaries, constraints and decisions.
-      - load.ts: load and validate. Schema errors must be actionable and name
-        the YAML line.
-      - evaluate.ts: resolve each file's layer by glob, evaluate boundaries over
-        the graph's edges, and the forbid and require constraints. Severity
-        error or warning.
-      - diff.ts: parse a unified diff, map touched files to nodes and evaluate
-        only the affected edges.
-      - importers/sheriff.ts and importers/nx.ts: read whatever configuration
-        the project already has and translate it into layers and boundaries.
-        R10 says there must not be two sources of truth.
-
-      Also implement the three Phase 2 tools: angular_list_rules,
-      angular_check_rules and angular_explain_layer. Put them in
-      src/rules/tools/ and export them, because src/tools/ belongs to another
-      task.
-
-      Write docs/RULES.md documenting the format with examples.
-
-      LANGUAGE: write ALL comments, docstrings, error messages and any
-      documentation in English. The repository is English-only.
-    timeout_s: 2700
   - id: server-wiring
     name: MCP server wiring in TypeScript
-    max_turns: 100
+    max_turns: 140
     role: backend
     complexity: medium
-    dependencies:
-    - query-tools
-    - rules-engine
+    dependencies: []
     ownership:
     - packages/server/src/index.ts
     - packages/server/src/server.ts
     - packages/server/src/resources/**
     - packages/server/src/prompts/**
     - packages/server/test/server.test.ts
+    - packages/server/src/tools/rules_tools.ts
+    - packages/server/src/tools/index.ts
     acceptance:
     - The server starts over stdio and lists every tool
     - No log goes to stdout
@@ -133,6 +46,16 @@ nodes:
 
       - server.ts: register every tool from src/tools/ and src/rules/tools/,
         the resources and the prompt. A thin layer, no domain logic.
+      - The ten tools in src/tools/ are already ToolDefinition objects
+        (see src/tools/internal/define.ts): name, Zod inputSchema, Zod
+        outputSchema, annotations, run(). Register them as they are.
+      - The three Phase 2 tools in src/rules/tools/ are plain functions: they
+        were written under an ownership boundary that kept them out of
+        src/tools/. Wrap them in src/tools/rules_tools.ts with the same
+        defineTool helper, so angular_check_rules, angular_list_rules and
+        angular_explain_layer each get a Zod input schema, an outputSchema and
+        READ_ONLY_ANNOTATIONS like every other tool, and export them from
+        src/tools/index.ts. All 13 tools must register through one code path.
       - index.ts: stdio entry point. All logging to stderr, never stdout.
       - resources/: angular://project/summary and angular://rules.
       - prompts/: angular_plan_change, the template that guides the sequence
@@ -144,7 +67,7 @@ nodes:
 
       LANGUAGE: write ALL comments, docstrings, error messages and any
       documentation in English. The repository is English-only.
-    timeout_s: 1800
+    timeout_s: 2700
   - id: ground-truth
     name: Expected graph for the fixtures
     max_turns: 140
@@ -170,12 +93,21 @@ nodes:
       against its expected-graph.json by structural equality, ignoring the
       order of nodes and edges.
 
+      Note on the indexer: an earlier attempt at this task was blocked because
+      the indexer only visited the tsconfig root file names, so it indexed
+      nothing on the fixtures' real Angular layout. That is fixed on the branch
+      (see test/indexer/real-layout.test.ts) and the indexer now walks the
+      program's transitive closure across every tsconfig a project declares.
+      Index the fixtures in place and pass an absolute cacheDir pointing at a
+      temp directory, so nothing is written into fixtures/.
+
       Report the precision and recall you measure. The Phase 1 exit criterion
       is precision >= 95% and recall >= 90%.
 
       LANGUAGE: write ALL comments, docstrings, error messages and any
       documentation in English. The repository is English-only.
     timeout_s: 2400
+    dependencies: []
   - id: review
     name: Adversarial review
     max_turns: 80
@@ -203,6 +135,13 @@ nodes:
       - P6: is there any tool that can return an unbounded response.
       - R11: is there any path used without validating that it falls inside the
         project root.
+
+      Also check the indexer's coverage honestly: src/indexer/extractors/ has
+      no Interceptor extraction at all, so a functional HttpInterceptorFn
+      registered through withInterceptors() never becomes an Interceptor node
+      even though the plan's graph includes one. Confirm or refute that, and
+      look for other node kinds declared in the model that nothing ever
+      produces.
 
       Name each breach with file and line. Do not fix anything: you are
       read-only. If you find no breach of a principle, say so explicitly rather
