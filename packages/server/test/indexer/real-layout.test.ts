@@ -1,0 +1,79 @@
+/**
+ * Regression test for the Angular CLI's real tsconfig layout.
+ *
+ * Every other indexer test builds its own tsconfig, and they all happened to
+ * use one that lists the sources through `include`. A real Angular app does
+ * not: `angular.json` points the build target at `tsconfig.app.json`, whose
+ * `files` is `["src/main.ts"]` and whose `include` is `["src/**\/*.d.ts"]`,
+ * with the specs living behind a separate `tsconfig.spec.json`.
+ *
+ * Indexing the tsconfig's root file names against that layout yields exactly
+ * one file and an empty graph. These tests pin the two properties that fix
+ * requires: the file set is the program's transitive closure, and every
+ * tsconfig the project declares is loaded.
+ */
+
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { indexProject } from '../../src/indexer/index.js';
+import { resolveProjectDependencies } from '../../src/indexer/resolve.js';
+
+const FIXTURE_ROOT = join(process.cwd(), '..', '..', 'fixtures', 'standalone-app');
+
+describe('indexProject against the Angular CLI tsconfig layout', () => {
+  let cacheDir: string;
+
+  beforeEach(async () => {
+    cacheDir = await mkdtemp(join(tmpdir(), 'real-layout-cache-'));
+  });
+
+  afterEach(async () => {
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  async function indexFixture() {
+    const deps = resolveProjectDependencies(FIXTURE_ROOT);
+    return indexProject({
+      root: FIXTURE_ROOT,
+      typescript: deps.typescript,
+      angularCompiler: deps.angularCompiler,
+      force: true,
+      cacheDir,
+    });
+  }
+
+  it('indexes the whole application, not just the single root file of tsconfig.app.json', async () => {
+    const result = await indexFixture();
+
+    // tsconfig.app.json's "files" is ["src/main.ts"]: anything above 1 proves
+    // the closure is being walked, and these are the app's real components.
+    const componentNames = result.graph.nodesByKind('Component').map((node) => node.name).sort();
+    expect(componentNames).toContain('UserListComponent');
+    expect(componentNames).toContain('OrderListComponent');
+    expect(componentNames.length).toBeGreaterThan(3);
+  });
+
+  it('indexes specs, which live behind a separate tsconfig.spec.json', async () => {
+    const result = await indexFixture();
+
+    expect(result.graph.nodesByKind('Spec').length).toBeGreaterThan(0);
+  });
+
+  it('does not index anything from node_modules', async () => {
+    const result = await indexFixture();
+
+    const fromDependencies = result.graph.allNodes().filter((node) => node.path.split('/').includes('node_modules'));
+    expect(fromDependencies).toEqual([]);
+  });
+
+  it('reaches services and their HTTP calls through the component graph', async () => {
+    const result = await indexFixture();
+
+    expect(result.graph.nodesByKind('Service').length).toBeGreaterThan(0);
+    expect(result.graph.nodesByKind('HttpCall').length).toBeGreaterThan(0);
+  });
+});

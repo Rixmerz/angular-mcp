@@ -49,6 +49,10 @@ describe('loadWorkspace', () => {
         root: '',
         sourceRoot: 'src',
         tsConfigPath: join(root, 'tsconfig.app.json'),
+        // Both are collected, build first: a standard Angular app keeps its
+        // specs behind the test tsconfig, and indexing only the build one
+        // would leave every spec out of the graph.
+        tsConfigPaths: [join(root, 'tsconfig.app.json'), join(root, 'tsconfig.spec.json')],
       },
     ]);
   });

@@ -17,7 +17,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 
 import type * as TS from 'typescript';
 
@@ -36,7 +36,7 @@ import { resolveComponentScope } from './extractors/selectors.js';
 import { extractSignals } from './extractors/signals.js';
 import { extractSpec } from './extractors/specs.js';
 import { extractTemplate } from './extractors/templates.js';
-import { loadProgramForProject } from './program.js';
+import { loadProgramsForProject } from './program.js';
 import { loadWorkspace } from './workspace.js';
 import { hydrateReusedFiles, planIncrementalIndex } from './incremental.js';
 
@@ -243,6 +243,18 @@ async function resolveComponentTemplate(
  * processed, elapsed time, parse errors) as required by the
  * `angular_index_project` tool (docs/PLAN.md, section 6).
  */
+/**
+ * True when `absolutePath` belongs to the analyzed project rather than to a
+ * dependency. A program's source files include every `.ts` it had to read,
+ * which on a real workspace means the whole of `node_modules`; indexing that
+ * would be both wrong and enormous.
+ */
+function isInsideProject(root: string, absolutePath: string): boolean {
+  const relativePath = normalizeRelativePath(relative(root, absolutePath));
+  if (relativePath === '' || relativePath.startsWith('../') || isAbsolute(relativePath)) return false;
+  return !relativePath.split('/').includes('node_modules');
+}
+
 export async function indexProject(options: IndexProjectOptions): Promise<IndexResult> {
   const start = Date.now();
   const { typescript, angularCompiler } = options;
@@ -261,33 +273,42 @@ export async function indexProject(options: IndexProjectOptions): Promise<IndexR
   const currentHashes = new Map<string, string>();
 
   for (const project of workspace.projects) {
-    let loaded;
-    try {
-      loaded = loadProgramForProject(typescript, project);
-    } catch (error) {
-      brokenFiles.push({ file: project.tsConfigPath ?? project.root, message: messageOf(error) });
-      continue;
+    const { programs, errors } = loadProgramsForProject(typescript, project);
+    for (const { file, error } of errors) {
+      brokenFiles.push({ file, message: messageOf(error) });
     }
 
-    for (const absolutePath of loaded.rootFileNames) {
-      const relativePath = normalizeRelativePath(relative(root, absolutePath));
-      if (sourceFileByPath.has(relativePath)) continue;
+    for (const loaded of programs) {
+      // Every source file the program pulled in, not just `rootFileNames`: a
+      // standard Angular `tsconfig.app.json` lists a single root file
+      // ("files": ["src/main.ts"]), so the root names alone would index one
+      // file and miss the entire application. `getSourceFiles()` is the whole
+      // transitive closure, which is what the compiler itself type-checks.
+      //
+      // Known limit, declared rather than papered over (P4): a file that
+      // nothing imports and that no tsconfig lists is not part of any program
+      // and therefore is not indexed.
+      for (const originalSourceFile of loaded.program.getSourceFiles()) {
+        const absolutePath = originalSourceFile.fileName;
+        if (originalSourceFile.isDeclarationFile) continue;
+        if (!isInsideProject(root, absolutePath)) continue;
 
-      const originalSourceFile = loaded.program.getSourceFile(absolutePath);
-      if (!originalSourceFile) continue;
+        const relativePath = normalizeRelativePath(relative(root, absolutePath));
+        if (sourceFileByPath.has(relativePath)) continue;
 
-      // Re-parsed with a project-relative fileName: NodeIds must be relative
-      // (graph/model.ts), and extractRoutes derives its path straight from
-      // `sourceFile.fileName`.
-      const relativeSourceFile = typescript.createSourceFile(
-        relativePath,
-        originalSourceFile.text,
-        originalSourceFile.languageVersion,
-        true,
-      );
+        // Re-parsed with a project-relative fileName: NodeIds must be relative
+        // (graph/model.ts), and extractRoutes derives its path straight from
+        // `sourceFile.fileName`.
+        const relativeSourceFile = typescript.createSourceFile(
+          relativePath,
+          originalSourceFile.text,
+          originalSourceFile.languageVersion,
+          true,
+        );
 
-      sourceFileByPath.set(relativePath, relativeSourceFile);
-      currentHashes.set(relativePath, hashContent(originalSourceFile.text));
+        sourceFileByPath.set(relativePath, relativeSourceFile);
+        currentHashes.set(relativePath, hashContent(originalSourceFile.text));
+      }
     }
   }
 
