@@ -17,7 +17,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, join, relative } from 'node:path';
+import { isAbsolute, relative, resolve as resolvePath } from 'node:path';
 
 import type * as TS from 'typescript';
 
@@ -41,6 +41,7 @@ import { extractTemplate } from './extractors/templates.js';
 import { loadProgramsForProject } from './program.js';
 import { loadWorkspace } from './workspace.js';
 import { hydrateReusedFiles, planIncrementalIndex } from './incremental.js';
+import { isInsideRoot } from '../tools/internal/paths.js';
 
 export interface IndexProjectOptions {
   /** Root of the analyzed project (an Angular workspace, or a plain tsconfig project). */
@@ -218,8 +219,18 @@ async function resolveComponentTemplate(
     templatePath = component.path;
   } else if (component.templatePath) {
     templatePath = component.templatePath;
+    // `templateUrl` is source text from the analyzed project, so it is an
+    // input like any other: a component declaring
+    // `templateUrl: '../../../../etc/passwd'` must not pull a file from
+    // outside the workspace into the graph (R11). Resolving it and checking
+    // containment costs nothing, and a template that escapes is skipped the
+    // same way an unreadable one is.
+    const absoluteTemplatePath = resolvePath(root, templatePath);
+    if (!isInsideRoot(root, absoluteTemplatePath)) {
+      return undefined;
+    }
     try {
-      templateSource = await readFile(join(root, templatePath), 'utf8');
+      templateSource = await readFile(absoluteTemplatePath, 'utf8');
     } catch {
       templateSource = undefined;
     }

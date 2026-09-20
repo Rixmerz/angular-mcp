@@ -13,7 +13,7 @@
  * tsconfig the project declares is loaded.
  */
 
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -128,5 +128,58 @@ describe('indexProject against the NgModule fixture', () => {
     const intercepted = result.graph.allEdges().filter((edge) => edge.kind === 'intercepted_by');
     expect(intercepted).toHaveLength(1);
     expect(intercepted[0]?.to).toBe('src/app/core/interceptors/logging.interceptor.ts#LoggingInterceptor');
+  });
+});
+
+describe('templateUrl containment (R11)', () => {
+  let projectRoot: string;
+  let cacheDir: string;
+
+  beforeEach(async () => {
+    projectRoot = await mkdtemp(join(tmpdir(), 'template-escape-'));
+    cacheDir = await mkdtemp(join(tmpdir(), 'template-escape-cache-'));
+  });
+
+  afterEach(async () => {
+    await rm(projectRoot, { recursive: true, force: true });
+    await rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('does not read a template whose templateUrl escapes the analyzed project', async () => {
+    // A component's `templateUrl` is source text from the analyzed project, so
+    // a hostile or simply broken one must not pull a file from outside the
+    // workspace into the graph.
+    const secretPath = join(projectRoot, '..', `secret-${process.pid}.html`);
+    await writeFile(secretPath, '<p>{{ secretValue }}</p>', 'utf8');
+
+    try {
+      await writeFile(
+        join(projectRoot, 'tsconfig.json'),
+        JSON.stringify({ compilerOptions: { target: 'ES2022' }, include: ['src'] }),
+        'utf8',
+      );
+      await mkdir(join(projectRoot, 'src'), { recursive: true });
+      await writeFile(
+        join(projectRoot, 'src', 'evil.component.ts'),
+        `import { Component } from '@angular/core';
+         @Component({ selector: 'app-evil', templateUrl: '../../secret-${process.pid}.html' })
+         export class EvilComponent {}`,
+        'utf8',
+      );
+
+      const { graph } = await indexProject({
+        root: projectRoot,
+        typescript,
+        angularCompiler,
+        force: true,
+        cacheDir,
+      });
+
+      // The component is still indexed; only its out-of-tree template is not.
+      expect(graph.nodesByKind('Component').map((node) => node.name)).toEqual(['EvilComponent']);
+      expect(graph.nodesByKind('Template')).toEqual([]);
+    } finally {
+      await rm(secretPath, { force: true });
+    }
   });
 });

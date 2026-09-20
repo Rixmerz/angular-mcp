@@ -208,3 +208,26 @@ describe('stdio entry point', () => {
     expect(SERVER_NAME).toBe('angular-mcp-server');
   });
 });
+
+describe('bounded responses (P6)', () => {
+  it('paginates the structured violations array, not just the formatted response', async () => {
+    const { checkRulesTool } = await import('../src/tools/rules_tools.js');
+
+    // The formatted `result` was always bounded; the structured array beside
+    // it was not, which would have put the whole unbounded payload back into
+    // the caller's context — the exact problem this server exists to avoid.
+    const description = checkRulesTool.outputSchema.violations.description ?? '';
+    expect(description).toMatch(/bounded by "limit"\/"offset"/);
+  });
+
+  it('gives every list tool a limit, an offset and a format', () => {
+    const listTools = ALL_TOOLS.filter((tool) => 'result' in tool.outputSchema);
+
+    expect(listTools.length).toBeGreaterThan(5);
+    for (const tool of listTools) {
+      expect(Object.keys(tool.inputSchema), tool.name).toEqual(
+        expect.arrayContaining(['limit', 'offset', 'format']),
+      );
+    }
+  });
+});
