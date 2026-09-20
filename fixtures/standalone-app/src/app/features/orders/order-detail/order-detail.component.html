@@ -1,0 +1,8 @@
+<section>
+  @if (hasOrder()) {
+    <h2>Order {{ order()!.reference }}</h2>
+    <p>Total: {{ order()!.total }}</p>
+  } @else {
+    <p>Loading order {{ orderId() }}...</p>
+  }
+</section>
