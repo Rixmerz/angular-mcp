@@ -28,50 +28,6 @@ nodes:
 
       # ---------- Ola 1: fundaciones ----------
 
-      - id: "scaffold"
-        name: "Andamiaje del paquete y CI en TypeScript"
-        max_turns: 80
-        role: "backend"
-        complexity: "medium"
-        ownership:
-          - "package.json"
-          - "pnpm-workspace.yaml"
-          - "pnpm-lock.yaml"
-          - ".gitignore"
-          - ".github/**"
-          - "packages/server/package.json"
-          - "packages/server/tsconfig.json"
-          - "packages/server/tsup.config.ts"
-          - "packages/server/vitest.config.ts"
-          - "packages/server/eslint.config.js"
-        acceptance:
-          - "pnpm install resuelve sin errores"
-          - "pnpm -C packages/server build compila sin errores"
-          - "pnpm -C packages/server test ejecuta vitest aunque no haya pruebas todavia"
-          - "El workflow de CI corre lint, typecheck y test"
-        prompt: |
-          Lee docs/PLAN.md, secciones 11 y 12, antes de escribir nada.
-
-          Crea el andamiaje del monorepo pnpm con un paquete en
-          packages/server llamado angular-mcp-server.
-
-          Requisitos:
-          - TypeScript en modo estricto, ESM, Node >= 20.
-          - Dependencias: @modelcontextprotocol/sdk, zod, yaml.
-          - typescript y @angular/compiler NO son dependencias normales del
-            paquete: se resuelven en tiempo de ejecucion desde el proyecto
-            analizado. Declaralas solo como devDependencies para poder
-            compilar y probar.
-          - Scripts: build (tsup), dev, test (vitest), lint (eslint),
-            typecheck (tsc --noEmit).
-          - Binario "angular-mcp" que apunte al bundle de src/index.ts.
-          - .github/workflows/ci.yml que corra lint, typecheck y test en
-            Node 20 y 22.
-          - .gitignore para node_modules, dist, .angular-mcp.
-
-          NO escribas logica de dominio. Solo configuracion.
-          NO toques archivos fuera de tu ownership.
-
       - id: "graph-model"
         name: "Modelo del grafo del proyecto en TypeScript"
         max_turns: 120
@@ -86,6 +42,11 @@ nodes:
           - "Hay indices por tipo, por nombre y por archivo"
           - "La cache invalida por hash de archivo"
         prompt: |
+          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
+          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
+          cero ni concluyas que ya esta listo: revisa cada criterio de
+          aceptacion contra el codigo real y escribe lo que falte.
+
           Lee docs/PLAN.md, seccion 5 completa, antes de escribir nada.
 
           Implementa el modelo del grafo del proyecto en
@@ -123,6 +84,11 @@ nodes:
           - "Incluye un componente que ya implementa paginacion, para probar find_similar"
           - "Incluye exactamente una violacion de arquitectura plantada"
         prompt: |
+          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
+          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
+          cero ni concluyas que ya esta listo: revisa cada criterio de
+          aceptacion contra el codigo real y escribe lo que falte.
+
           Lee docs/PLAN.md, secciones 7 Fase 0 y 9, antes de escribir nada.
 
           Crea una app Angular standalone minima pero representativa en
@@ -160,6 +126,11 @@ nodes:
           - "Usa NgModule, inyeccion por constructor y RouterModule"
           - "Incluye un componente standalone importado desde un NgModule, para el caso hibrido"
         prompt: |
+          IMPORTANTE: este trabajo ya esta empezado en el repositorio.
+          Lee primero lo que existe y COMPLETALO. No lo reescribas desde
+          cero ni concluyas que ya esta listo: revisa cada criterio de
+          aceptacion contra el codigo real y escribe lo que falte.
+
           Lee docs/PLAN.md, riesgo R4, antes de escribir nada.
 
           Crea una app Angular de estilo NgModule en fixtures/ngmodule-app/.
@@ -183,7 +154,7 @@ nodes:
         max_turns: 120
         role: "backend"
         complexity: "high"
-        dependencies: ["scaffold", "graph-model"]
+        dependencies: ["graph-model"]
         ownership:
           - "packages/server/src/indexer/workspace.ts"
           - "packages/server/src/indexer/program.ts"
