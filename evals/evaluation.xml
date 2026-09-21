@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Agent evaluation for angular-mcp (docs/PLAN.md, section 9.3).
+
+  Ten questions about the two fixtures. Each one is independent, answerable
+  with read-only tools alone, and has a single answer that can be checked by
+  string comparison and will not drift as long as the fixtures do not change.
+
+  Every answer below was produced by running the real server over stdio
+  against fixtures/standalone-app and fixtures/ngmodule-app — none was written
+  from memory. Questions 1 to 8 are about the standalone fixture, 9 and 10
+  about the NgModule one.
+
+  They are deliberately not single lookups: each needs at least two hops
+  through the graph, which is what the server exists to make cheap. Question 6
+  in particular cannot be answered by reading any one file — the call is in a
+  service, the registration in app.config.ts, and the interceptor in a third
+  file.
+-->
+<evaluation>
+  <qa_pair>
+    <question>In the standalone-app fixture, one component makes an HTTP request without going through a service, which the no-http-in-components rule forbids. Which component is it?</question>
+    <answer>OrderDetailComponent</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the standalone-app fixture, how many HttpClient call sites are there in total across the whole project?</question>
+    <answer>7</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the standalone-app fixture, a guard protects the orders route subtree. What is the name of that guard?</question>
+    <answer>authGuard</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the standalone-app fixture, the order detail route (path ':id') resolves data before activating. What is the name of the resolver it uses?</question>
+    <answer>orderResolver</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the standalone-app fixture, how many reactive primitives (signals, computed, inputs, models and viewChild) does OrderListComponent declare in total?</question>
+    <answer>7</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the standalone-app fixture, starting from UserService and following its HTTP calls, which interceptor sees the requests it makes?</question>
+    <answer>authInterceptor</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the standalone-app fixture, which service does UserListComponent inject?</question>
+    <answer>UserService</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the standalone-app fixture, which component is structurally most similar to UserListComponent — that is, the one whose dependencies, state, HTTP and template shapes overlap it most?</question>
+    <answer>OrderListComponent</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the ngmodule-app fixture, exactly one component is standalone while the rest are declared by an NgModule. Which one is standalone?</question>
+    <answer>StandaloneBadgeComponent</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>In the ngmodule-app fixture, what is the class name of the only pipe in the project?</question>
+    <answer>ShoutPipe</answer>
+  </qa_pair>
+</evaluation>
