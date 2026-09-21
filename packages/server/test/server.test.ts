@@ -40,10 +40,13 @@ const EXPECTED_TOOL_NAMES = [
   'angular_list_rules',
   'angular_check_rules',
   'angular_explain_layer',
+  'angular_find_similar',
+  'angular_get_api_contract',
+  'angular_list_decisions',
 ].sort();
 
 describe('tool registry', () => {
-  it('exposes exactly the Phase 1 and Phase 2 tools, all prefixed with angular_', () => {
+  it('exposes exactly the tools docs/PLAN.md section 6 lists, all prefixed with angular_', () => {
     expect(ALL_TOOLS.map((tool) => tool.name).sort()).toEqual(EXPECTED_TOOL_NAMES);
   });
 
