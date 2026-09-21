@@ -58,26 +58,45 @@ function dependencyTokens(graph: ProjectGraph, node: GraphNode): string[] {
 }
 
 /**
+ * State tokens grouped by the node that owns them, built once per graph.
+ *
+ * Without this, every signature scans every Signal and Observable node in the
+ * project, and `findSimilar` builds one signature per candidate — so a
+ * thousand components against three thousand signals is three million
+ * comparisons for a single call. R5 names large repositories as a real risk;
+ * this keeps the walk linear.
+ */
+export type StateIndex = ReadonlyMap<NodeId, readonly string[]>;
+
+export function buildStateIndex(graph: ProjectGraph): StateIndex {
+  const byOwner = new Map<NodeId, string[]>();
+
+  for (const signal of graph.nodesByKind('Signal')) {
+    const signalNode = signal as SignalNode;
+    const token = `state:${signalNode.signalKind}${signalNode.required ? ':required' : ''}`;
+    (byOwner.get(signalNode.ownerRef) ?? byOwner.set(signalNode.ownerRef, []).get(signalNode.ownerRef)!).push(token);
+  }
+
+  for (const observable of graph.nodesByKind('Observable')) {
+    const ownerRef = (observable as { ownerRef?: NodeId }).ownerRef;
+    if (ownerRef === undefined) continue;
+    (byOwner.get(ownerRef) ?? byOwner.set(ownerRef, []).get(ownerRef)!).push('state:observable');
+  }
+
+  const frozen = new Map<NodeId, readonly string[]>();
+  for (const [ownerRef, tokens] of byOwner) frozen.set(ownerRef, uniqueSorted(tokens));
+  return frozen;
+}
+
+/**
  * Which reactive primitives a symbol declares, by kind — `signal`, `computed`,
  * `input`, `model`, `viewChild` and so on. The *names* are deliberately left
  * out: two paginated lists are the same shape whether they call it `pageSize`
  * or `perPage`.
  */
-function stateTokens(graph: ProjectGraph, node: GraphNode): string[] {
-  const tokens: string[] = [];
-
-  for (const signal of graph.nodesByKind('Signal')) {
-    const signalNode = signal as SignalNode;
-    if (signalNode.ownerRef !== node.id) continue;
-    tokens.push(`state:${signalNode.signalKind}${signalNode.required ? ':required' : ''}`);
-  }
-
-  for (const observable of graph.nodesByKind('Observable')) {
-    if ((observable as { ownerRef?: NodeId }).ownerRef !== node.id) continue;
-    tokens.push('state:observable');
-  }
-
-  return uniqueSorted(tokens);
+function stateTokens(graph: ProjectGraph, node: GraphNode, index?: StateIndex): string[] {
+  const resolved = index ?? buildStateIndex(graph);
+  return [...(resolved.get(node.id) ?? [])];
 }
 
 /**
@@ -133,15 +152,20 @@ function templateTokens(graph: ProjectGraph, node: GraphNode): string[] {
   return uniqueSorted(tokens);
 }
 
-/** Builds the full signature of one node. */
-export function signatureOf(graph: ProjectGraph, node: GraphNode): Signature {
+/**
+ * Builds the full signature of one node.
+ *
+ * `stateIndex` is optional and exists only for cost: pass one when signing
+ * many nodes against the same graph, as `findSimilar` does.
+ */
+export function signatureOf(graph: ProjectGraph, node: GraphNode, stateIndex?: StateIndex): Signature {
   return {
     ref: node.id,
     kind: node.kind,
     name: node.name,
     tokens: {
       dependencies: dependencyTokens(graph, node),
-      state: stateTokens(graph, node),
+      state: stateTokens(graph, node, stateIndex),
       http: httpTokens(graph, node),
       template: templateTokens(graph, node),
     },
@@ -233,11 +257,13 @@ export function findSimilar(
   target: GraphNode,
   aspects: readonly SignatureAspect[] = SIGNATURE_ASPECTS,
 ): SimilarityResult[] {
-  const targetSignature = signatureOf(graph, target);
+  // Built once and shared across every candidate, not rebuilt per signature.
+  const stateIndex = buildStateIndex(graph);
+  const targetSignature = signatureOf(graph, target, stateIndex);
 
   return graph
     .nodesByKind(target.kind)
     .filter((node) => node.id !== target.id)
-    .map((node) => compareSignatures(targetSignature, signatureOf(graph, node), aspects))
+    .map((node) => compareSignatures(targetSignature, signatureOf(graph, node, stateIndex), aspects))
     .sort((a, b) => b.score - a.score || a.signature.ref.localeCompare(b.signature.ref));
 }

@@ -20,8 +20,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { indexProject } from '../../src/indexer/index.js';
 import { ToolContext } from '../../src/tools/index.js';
 import { findSimilarTool } from '../../src/tools/find_similar.js';
-import { getApiContractTool, normalizeUrlForMatching, urlMatchesOpenApiPath } from '../../src/tools/get_api_contract.js';
+import { getApiContractTool, matchUrlToOpenApiPath, normalizeUrlForMatching, urlMatchesOpenApiPath } from '../../src/tools/get_api_contract.js';
 import { listDecisionsTool } from '../../src/tools/list_decisions.js';
+import { findSimilar } from '../../src/patterns/signature.js';
 
 const FIXTURE = join(process.cwd(), '..', '..', 'fixtures', 'standalone-app');
 
@@ -226,5 +227,96 @@ describe('angular_list_decisions', () => {
 
     expect(output.totalDecisionCount).toBe(0);
     expect(output.decisionCount).toBe(0);
+  });
+});
+
+/**
+ * Findings from reviewing the Phase 3 and Phase 5 code after it was written.
+ * Each of these was a real defect, so each gets a test that fails without the
+ * fix.
+ */
+describe('review findings', () => {
+  it('reports an exact match as certain and a suffix match as inferred (R7)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'suffix-contract-'));
+    try {
+      await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'f' }), 'utf8');
+      // "/users" lines up exactly with the fixture's https://api.example.com/users
+      // once the origin is stripped. "/single" only lines up with
+      // https://api.example.com/orders/single by assuming "/orders" is part of
+      // a base the document omits — which is a guess.
+      await writeFile(
+        join(root, 'openapi.json'),
+        JSON.stringify({
+          openapi: '3.0.0',
+          paths: {
+            '/users': { get: { responses: {} } },
+            '/single': { get: { responses: {} } },
+          },
+        }),
+        'utf8',
+      );
+
+      const base = await contextForFixture(FIXTURE);
+      const context = new ToolContext({ defaultRoot: root });
+      context.setState({ ...base.getStateFor(FIXTURE)!, root });
+
+      const exact = await getApiContractTool.run(
+        { url_pattern: 'api.example.com/users', format: 'json' },
+        context,
+      );
+      const exactItems = (exact.result as { data: { items: readonly { confidence: string }[] } }).data.items;
+      expect(exactItems.some((item) => item.confidence === 'certain')).toBe(true);
+
+      const suffix = await getApiContractTool.run(
+        { url_pattern: 'orders/single', format: 'json' },
+        context,
+      );
+      const suffixItems = (suffix.result as {
+        data: { items: readonly { confidence: string; summary: string }[] };
+      }).data.items;
+      const matched = suffixItems.find((item) => item.summary.includes('/single'));
+      // Matched, but flagged as an assumption rather than as the contract.
+      expect(matched?.confidence).toBe('inferred');
+      expect(matched?.summary).toContain('matched by suffix');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not report a versioned path as a certain match for an unversioned one', () => {
+    // /v2/users and /users are different endpoints. The suffix rule matches
+    // them, so the match kind has to say it was a guess.
+    expect(matchUrlToOpenApiPath('/v2/users', '/users')).toBe('suffix');
+    expect(matchUrlToOpenApiPath('/users', '/users')).toBe('exact');
+    expect(matchUrlToOpenApiPath('/superusers', '/users')).toBe('none');
+  });
+
+  it('prefers an exact match over a suffix one whatever order the document declares them', () => {
+    // A document holding both /users and /v2/users must match the v2 call to
+    // /v2/users, not to whichever appears first.
+    expect(matchUrlToOpenApiPath('${environment.apiUrl}/v2/users', '/v2/users')).toBe('exact');
+    expect(matchUrlToOpenApiPath('${environment.apiUrl}/v2/users', '/users')).toBe('suffix');
+  });
+
+  it('builds the state index once, so similarity does not rescan every signal per candidate (R5)', async () => {
+    const context = await contextForFixture(FIXTURE);
+    const state = context.getStateFor(FIXTURE)!;
+    const graph = state.result.graph;
+
+    let scans = 0;
+    const original = graph.nodesByKind.bind(graph);
+    (graph as unknown as { nodesByKind: typeof original }).nodesByKind = (kind) => {
+      if (kind === 'Signal') scans += 1;
+      return original(kind);
+    };
+
+    try {
+      findSimilar(graph, graph.nodesByName('UserListComponent')[0]!);
+    } finally {
+      (graph as unknown as { nodesByKind: typeof original }).nodesByKind = original;
+    }
+
+    // One scan for the whole call, not one per candidate.
+    expect(scans).toBe(1);
   });
 });
