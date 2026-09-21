@@ -60,3 +60,5 @@ export const PHASE_1_TOOLS = [
 
 /** The Phase 3 pattern and contract tools (docs/PLAN.md section 6). */
 export const PHASE_3_TOOLS = [findSimilarTool, getApiContractTool, listDecisionsTool] as const;
+
+export { PHASE_5_TOOLS, addDependencyTool, addRouteTool, generateTool } from './mutations.js';

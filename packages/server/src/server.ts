@@ -15,14 +15,19 @@ import { z } from 'zod';
 import { PLAN_CHANGE_PROMPT_NAME, renderPlanChangePrompt } from './prompts/index.js';
 import { PROJECT_SUMMARY_URI, RULES_URI, readProjectSummary, readRules } from './resources/index.js';
 import { PHASE_1_TOOLS, PHASE_3_TOOLS, ToolContext, ToolError } from './tools/index.js';
+import { PHASE_5_TOOLS } from './tools/mutations.js';
 import { validatePathInputs } from './tools/internal/paths.js';
 import { PHASE_2_TOOLS } from './tools/rules_tools.js';
 
 export const SERVER_NAME = 'angular-mcp-server';
 export const SERVER_VERSION = '0.0.1';
 
-/** Every tool this server exposes, in plan order: query, rules, then patterns and contracts. */
-export const ALL_TOOLS = [...PHASE_1_TOOLS, ...PHASE_2_TOOLS, ...PHASE_3_TOOLS];
+/**
+ * Every tool this server exposes, in plan order: query, rules, patterns and
+ * contracts, then the bounded mutations. The Phase 5 tools are the only ones
+ * that can write, and each defaults to a dry run.
+ */
+export const ALL_TOOLS = [...PHASE_1_TOOLS, ...PHASE_2_TOOLS, ...PHASE_3_TOOLS, ...PHASE_5_TOOLS];
 
 export interface CreateServerOptions {
   /** Root of the Angular workspace this server analyzes. Fixed for the server's lifetime (R11). */
