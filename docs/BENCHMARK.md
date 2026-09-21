@@ -16,7 +16,7 @@ So here are the numbers, including the one that does not meet its target.
 |---|---|---|---|
 | Full files read per task | −60% | **−100%** | Yes, by construction |
 | Input tokens per task | −50% | **−45%** | **No** |
-| Incremental indexing | < 2 s | **0.9 s** | Yes |
+| Incremental indexing | < 2 s | **0.6–1.0 s** | Yes, on this hardware |
 | Graph precision vs ground truth | ≥ 95% | **100%** | Yes |
 | Turns to first correct edit | −40% | not measured | — |
 | Task success rate | ≥ baseline | not measured | — |
@@ -101,6 +101,11 @@ Measured on `fixtures/standalone-app`, 20 source files:
 |---|---|
 | Cold index (`force: true`) | 1.0 s |
 | Incremental, nothing changed | 0.9 s |
+
+The test asserts the part of this that is a property of the code — every file
+reused, none re-extracted — and records the elapsed time without asserting the
+plan's threshold. On a shared CI runner an elapsed-time assertion measures the
+runner, not the cache, and a flaky red teaches nobody anything.
 
 The incremental run reuses all 20 files from cache and re-extracts none, yet
 saves only about 10%. That is not a cache failure: on a project this small
