@@ -23,6 +23,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The Angular version matrix (docs/PLAN.md 9.4, R1's mitigation). The
+      # fixture holds only the packages the indexer resolves from an analyzed
+      # project, so this is a few seconds and a few megabytes, not a full
+      # Angular workspace. Without it, test/integration/version-matrix.test.ts
+      # skips itself and the matrix silently does not exist.
+      - name: Install the Angular 20 fixture
+        run: npm install --no-audit --no-fund
+        working-directory: fixtures/v20-app
+
       - run: pnpm -C packages/server lint
 
       - run: pnpm -C packages/server typecheck

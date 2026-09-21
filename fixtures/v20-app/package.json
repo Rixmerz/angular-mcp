@@ -1,0 +1,16 @@
+{
+  "name": "v20-app",
+  "private": true,
+  "description": "Angular 20 fixture for the version matrix (docs/PLAN.md 9.4, R1). Deliberately minimal: it holds only the packages the indexer resolves from an analyzed project, so CI can install it cheaply.",
+  "dependencies": {
+    "@angular/core": "20.3.31",
+    "@angular/common": "20.3.31",
+    "@angular/compiler": "20.3.31",
+    "@angular/router": "20.3.31",
+    "rxjs": "^7.8.0",
+    "zone.js": "^0.15.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.0"
+  }
+}

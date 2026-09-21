@@ -103,15 +103,31 @@ export function normalizeUrlForMatching(url: string): string {
     .toLowerCase();
 }
 
-/** True when a call URL and an OpenAPI path describe the same endpoint shape. */
-export function urlMatchesOpenApiPath(callUrl: string, openApiPath: string): boolean {
+/** How a call URL lines up with an OpenAPI path. */
+export type UrlMatchKind = 'exact' | 'suffix' | 'none';
+
+/**
+ * Compares a call URL against an OpenAPI path template.
+ *
+ * An `exact` match is the same endpoint. A `suffix` match is the common case
+ * where the call carries a base the document omits (`/api/users` against
+ * `/users`) — but it is a *guess* about what that leading segment is, and it
+ * would also match `/v2/users` against `/users`, which is a different
+ * endpoint. So the two are kept apart and the caller reports them at
+ * different confidences: certain for exact, inferred for suffix (R7).
+ */
+export function matchUrlToOpenApiPath(callUrl: string, openApiPath: string): UrlMatchKind {
   const normalizedCall = normalizeUrlForMatching(callUrl);
   const normalizedPath = normalizeUrlForMatching(openApiPath);
-  if (normalizedCall === normalizedPath) return true;
 
-  // The call's URL usually carries a base the document omits, so a suffix
-  // match on whole segments counts, while a partial segment does not.
-  return normalizedCall.endsWith(normalizedPath) && normalizedPath.length > 0;
+  if (normalizedCall === normalizedPath) return 'exact';
+  if (normalizedPath.length > 0 && normalizedCall.endsWith(normalizedPath)) return 'suffix';
+  return 'none';
+}
+
+/** True when a call URL and an OpenAPI path describe the same endpoint shape, exactly or by suffix. */
+export function urlMatchesOpenApiPath(callUrl: string, openApiPath: string): boolean {
+  return matchUrlToOpenApiPath(callUrl, openApiPath) !== 'none';
 }
 
 const inputSchema = {
@@ -160,9 +176,12 @@ function contractFactsFromOpenApi(
       continue;
     }
 
-    const matchedPath = Object.keys(source.document.paths ?? {}).find((openApiPath) =>
-      urlMatchesOpenApiPath(call.urlPattern, openApiPath),
-    );
+    // An exact match always wins over a suffix one, whatever order the
+    // document happens to declare its paths in.
+    const openApiPaths = Object.keys(source.document.paths ?? {});
+    const matchedPath =
+      openApiPaths.find((openApiPath) => matchUrlToOpenApiPath(call.urlPattern, openApiPath) === 'exact') ??
+      openApiPaths.find((openApiPath) => matchUrlToOpenApiPath(call.urlPattern, openApiPath) === 'suffix');
 
     if (!matchedPath) {
       facts.push(
@@ -179,16 +198,26 @@ function contractFactsFromOpenApi(
 
     const operations = source.document.paths?.[matchedPath] ?? {};
     const operation = operations[call.method.toLowerCase()];
+    const matchKind = matchUrlToOpenApiPath(call.urlPattern, matchedPath);
+
+    // Exact means this is the endpoint. Suffix means the leading segments of
+    // the call's URL were assumed to be a base the document omits — true most
+    // of the time, and wrong for a versioned path like /v2/users against
+    // /users. That assumption is reported, not hidden (P4).
+    const confidence = !operation ? 'unknown' : matchKind === 'exact' ? 'certain' : 'inferred';
 
     facts.push(
       makeFact({
         kind: 'Contract',
-        summary: `${call.method} ${matchedPath} — defined in ${source.path}`,
+        summary:
+          `${call.method} ${matchedPath} — defined in ${source.path}` +
+          (matchKind === 'suffix' ? ` (matched by suffix; "${call.urlPattern}" carries a base the document omits)` : ''),
         provenance: { file: source.path },
-        confidence: operation ? 'certain' : 'unknown',
+        confidence,
         detail: {
           ref: call.id,
           openApiPath: matchedPath,
+          matchKind,
           method: call.method,
           operation: operation ?? null,
           note: operation ? undefined : `The path exists but declares no "${call.method.toLowerCase()}" operation.`,
