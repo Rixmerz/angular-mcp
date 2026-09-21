@@ -16,6 +16,7 @@ import type * as TS from 'typescript';
 import { z } from 'zod';
 
 import { addDependency } from '../mutations/add_dependency.js';
+import type { AddDependencyRequest, AddDependencyResult } from '../mutations/add_dependency.js';
 import { addRoute } from '../mutations/add_route.js';
 import { applyEdits, readProjectFile } from '../mutations/apply.js';
 import { ALLOWED_SCHEMATICS, parseGeneratedFiles, runGenerate } from '../mutations/generate.js';
@@ -285,23 +286,29 @@ export const addDependencyTool = defineTool({
 
     const before = await readProjectFile(root, filePath);
 
-    // Only consulted when the class injects nothing yet, so the cost of
-    // reading the project's other classes is paid only in that case.
-    const otherPaths = graph
-      .allNodes()
-      .filter((node) => (node.kind === 'Component' || node.kind === 'Service') && node.path !== filePath)
-      .map((node) => node.path);
+    // Reading every other component and service is only worth doing when the
+    // class itself shows no style, so the counts are resolved lazily rather
+    // than computed on every call.
+    const loadProjectCounts = async (): Promise<InjectionStyleCounts> => {
+      const otherPaths = graph
+        .allNodes()
+        .filter((node) => (node.kind === 'Component' || node.kind === 'Service') && node.path !== filePath)
+        .map((node) => node.path);
+      return projectInjectionCounts(state.deps.typescript, root, [...new Set(otherPaths)]);
+    };
 
-    const result = addDependency({
-      typescript: state.deps.typescript,
-      sourceText: before,
-      filePath,
-      className,
-      dependencyType: input.dependency,
-      propertyName: input.property_name,
-      importFrom: input.import_from,
-      projectCounts: await projectInjectionCounts(state.deps.typescript, root, [...new Set(otherPaths)]),
-    });
+    const result = await addDependencyWithLazyProjectCounts(
+      {
+        typescript: state.deps.typescript,
+        sourceText: before,
+        filePath,
+        className,
+        dependencyType: input.dependency,
+        propertyName: input.property_name,
+        importFrom: input.import_from,
+      },
+      loadProjectCounts,
+    );
 
     const applied = await applyEdits(root, [{ path: filePath, before, after: result.after }], input.dry_run ?? true);
 
@@ -317,6 +324,25 @@ export const addDependencyTool = defineTool({
     };
   },
 });
+
+/**
+ * Runs `addDependency`, consulting the project's counts only if the class's
+ * own code did not settle the style.
+ *
+ * The edit is computed twice in that case, which is cheap — it is a string
+ * splice over one file — and far cheaper than reading every component and
+ * service in the project on every call, which is what computing the counts
+ * eagerly would cost.
+ */
+export async function addDependencyWithLazyProjectCounts(
+  request: Omit<AddDependencyRequest, 'projectCounts'>,
+  loadProjectCounts: () => Promise<InjectionStyleCounts>,
+): Promise<AddDependencyResult> {
+  const first = addDependency(request);
+  if (first.style.confidence !== 'unknown') return first;
+
+  return addDependency({ ...request, projectCounts: await loadProjectCounts() });
+}
 
 /** The three Phase 5 mutation tools (docs/PLAN.md section 6). */
 export const PHASE_5_TOOLS = [generateTool, addRouteTool, addDependencyTool] as const;

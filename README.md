@@ -166,6 +166,8 @@ project. See [`docs/RULES.md`](docs/RULES.md) for the full schema.
 - [`docs/RULES.md`](docs/RULES.md) — the rules file schema and the importers.
 - [`docs/PLAN.md`](docs/PLAN.md) — the design: principles, phases, risks and their mitigations.
 - [`evals/evaluation.xml`](evals/evaluation.xml) — ten questions about the fixtures, each answerable with the read-only tools and verified against the running server.
+- [`docs/BENCHMARK.md`](docs/BENCHMARK.md) — what section 10 asks for, what was measured, and the target that is not met.
+- [`docs/adr/`](docs/adr/) — the decisions with the most consequence for this codebase, each with the evidence that settled it.
 
 ## Development
 
@@ -175,13 +177,25 @@ pnpm -C packages/server typecheck
 pnpm -C packages/server test
 ```
 
-`fixtures/standalone-app` and `fixtures/ngmodule-app` are real Angular
+`fixtures/standalone-app` and `fixtures/ngmodule-app` are real Angular 18
 applications built to cover the cases that matter: standalone and NgModule
 declarations, every reactive primitive, all five modern control-flow forms,
 functional and class guards, resolvers and interceptors, lazy routes, barrels,
 three different URL shapes, and one deliberately planted architecture violation.
 Each has an `expected-graph.json` written by hand from its source — the
 integration test measures the indexer against it rather than against itself.
+
+`fixtures/v20-app` is the second half of the version matrix: a minimal Angular
+20 install, holding only the packages the indexer resolves, so CI can install
+it in seconds. It is what actually exercises the behaviour that differs between
+majors — most sharply the `standalone` default, which flipped in Angular 19 and
+which the server reads from the analyzed project rather than assuming.
+
+```bash
+npm --prefix fixtures/v20-app install   # needed once, for the matrix tests
+```
+
+Without it those tests skip themselves rather than fail confusingly.
 
 ## Status
 
@@ -190,12 +204,16 @@ and ten query tools, the rules engine and its three, the pattern and contract
 tools, the MCP server with its resources and prompt, and the three bounded
 mutations.
 
-One thing the plan asks for is **not** done, and it gates Phase 5 on paper: the
-section 10 A/B benchmark, which measures token and turn reduction against an
-agent working without the server. Of the metrics it lists, only graph precision
-(100% on both fixtures) and incremental indexing are measured today. The
-mutations are built, tested and safe by default, but the numbers that were
-supposed to justify opening that phase do not exist yet.
+The section 10 benchmark is **partly** done, and one of its targets is **not
+met**. Measured: full files read per task −100%, context per task −45% against
+a −50% target, incremental indexing 0.9 s, graph precision 100%. Not measured:
+turns to first correct edit and task success rate, which need an agent driven
+three times on each side and cannot be derived from the repository.
+
+[`docs/BENCHMARK.md`](docs/BENCHMARK.md) has the per-task table, why the two
+weakest tasks score as they do, and what someone would have to run to finish
+it. The mutations of Phase 5 are built, tested and safe by default, but the
+evidence the plan wanted before opening that phase is partial.
 
 ## License
 
