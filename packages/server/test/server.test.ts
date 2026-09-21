@@ -43,6 +43,9 @@ const EXPECTED_TOOL_NAMES = [
   'angular_find_similar',
   'angular_get_api_contract',
   'angular_list_decisions',
+  'angular_generate',
+  'angular_add_route',
+  'angular_add_dependency',
 ].sort();
 
 describe('tool registry', () => {
@@ -50,13 +53,27 @@ describe('tool registry', () => {
     expect(ALL_TOOLS.map((tool) => tool.name).sort()).toEqual(EXPECTED_TOOL_NAMES);
   });
 
-  it('declares an input schema, an output schema and read-only annotations on every tool', () => {
+  it('declares an input schema, an output schema and a real description on every tool', () => {
     for (const tool of ALL_TOOLS) {
       expect(Object.keys(tool.inputSchema).length, `${tool.name} input schema`).toBeGreaterThan(0);
       expect(Object.keys(tool.outputSchema).length, `${tool.name} output schema`).toBeGreaterThan(0);
-      expect(tool.annotations.readOnlyHint, `${tool.name} readOnlyHint`).toBe(true);
       expect(tool.annotations.destructiveHint, `${tool.name} destructiveHint`).toBe(false);
       expect(tool.description.length, `${tool.name} description`).toBeGreaterThan(40);
+    }
+  });
+
+  it('marks exactly the three Phase 5 mutations as able to write, and everything else read-only', () => {
+    const writers = ALL_TOOLS.filter((tool) => tool.annotations.readOnlyHint !== true).map((tool) => tool.name);
+
+    // A tool that can write must say so, even though each defaults to a dry run.
+    expect(writers.sort()).toEqual(['angular_add_dependency', 'angular_add_route', 'angular_generate']);
+  });
+
+  it('gives every mutation a dry_run input, so the safe default is never skipped', () => {
+    const mutations = ALL_TOOLS.filter((tool) => tool.annotations.readOnlyHint !== true);
+
+    for (const tool of mutations) {
+      expect(Object.keys(tool.inputSchema), tool.name).toContain('dry_run');
     }
   });
 });
@@ -84,8 +101,12 @@ describe('MCP server over an in-memory transport', () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual(EXPECTED_TOOL_NAMES);
+
+    const MUTATIONS = new Set(['angular_generate', 'angular_add_route', 'angular_add_dependency']);
     for (const tool of tools) {
-      expect(tool.annotations?.readOnlyHint, `${tool.name} readOnlyHint`).toBe(true);
+      // The annotation crosses the protocol as declared: read-only for the
+      // query tools, and honestly false for the three that can write.
+      expect(tool.annotations?.readOnlyHint, `${tool.name} readOnlyHint`).toBe(!MUTATIONS.has(tool.name));
       expect(tool.inputSchema, `${tool.name} inputSchema`).toBeDefined();
       expect(tool.outputSchema, `${tool.name} outputSchema`).toBeDefined();
     }
