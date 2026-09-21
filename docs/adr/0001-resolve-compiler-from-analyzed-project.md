@@ -30,6 +30,10 @@ on. The fix reads the major version from the project's own compiler
 A bundled compiler would have made that bug unfixable rather than merely
 present.
 
+`fixtures/v20-app` plus `test/integration/version-matrix.test.ts` keep it that
+way: they index a real Angular 20 install beside the Angular 18 ones and assert
+that the same omitted flag means opposite things in each.
+
 ## Consequences
 
 Every extractor takes `typescript` as a parameter instead of importing it, and
