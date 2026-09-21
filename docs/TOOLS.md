@@ -1,8 +1,9 @@
 # Tool catalogue
 
-Thirteen tools, all read-only. Every one takes an optional `root` (defaulting to
-the workspace the server was started against), and every one that returns a list
-takes `limit`, `offset` and `format`.
+Nineteen tools. Sixteen are read-only; the three mutations at the end are the
+only ones that can write, and each defaults to a dry run. Every tool takes an
+optional `root` (defaulting to the workspace the server was started against),
+and every one that returns a list takes `limit`, `offset` and `format`.
 
 Every example below is real output from `fixtures/standalone-app`, captured over
 stdio. Nothing here is illustrative-only.
@@ -222,6 +223,172 @@ Which layer a file belongs to, which glob matched it, where that layer was
 defined, and what it may depend on. Use it when `angular_check_rules` reports
 something and you need to know why that file is in that layer. A file no glob
 matches is reported as having no layer, not assigned to a default one.
+
+## angular_find_similar
+
+Symbols whose *structure* resembles a given one — what they inject, which
+reactive primitives they declare, which HTTP methods they reach (directly or
+through one hop of injection), and what their template is made of. Use it to
+find the pattern the codebase already uses before inventing a new one.
+
+| Input | Type | Notes |
+|---|---|---|
+| `ref` | string | The symbol to find analogues of. |
+| `aspect` | string[]? | Which facets to compare: `dependencies`, `state`, `http`, `template`. Defaults to all four. |
+| `min_score` | number? | Drop candidates below this overlap. |
+
+Member names are deliberately excluded from the comparison: two paginated lists
+are the same shape whether they call it `pageSize` or `perPage`. The injected
+symbol's *name* is kept alongside its kind, so a same-service match outranks a
+same-shape one and both questions stay answerable.
+
+The score is a counted overlap of structural tokens and the summary states how
+each candidate differs, in both directions. It ranks; it does not recommend.
+Ties break on ref, so repeated runs agree.
+
+## angular_get_api_contract
+
+The request and response shape of an endpoint the project calls.
+
+| `source` | Meaning |
+|---|---|
+| `openapi` | Read from an OpenAPI or Swagger document in the repository. This is the backend's stated contract, and is marked `certain`. |
+| `typescript-generics` | Read from the call site's type arguments. This is what the frontend *assumes*, and is marked `inferred`. |
+
+The distinction is the point: an agent that cannot tell a contract from an
+assumption writes code against the assumption. A URL the extractor could not
+resolve statically is never matched against a path — guessing which endpoint an
+unresolved URL meant is exactly what `unknown` exists to prevent. Nothing is
+fetched over the network.
+
+## angular_list_decisions
+
+The architecture decisions the project declares in its rules file, optionally
+filtered to the ones that apply to one path. A decision is prose a team wrote
+down, not a machine-checkable constraint, so it is reported verbatim and never
+interpreted. A decision with no `applies_to` is project-wide.
+
+---
+
+# Mutations
+
+The three tools below can write. All of them share one rule, from the plan:
+
+> **`dry_run` defaults to `true`.** The change is computed and returned as a
+> unified diff, and nothing is written. Pass `dry_run: false` only after
+> reviewing that diff — ideally after running `angular_check_rules` over it.
+
+Their annotations say so: `readOnlyHint: false`, because the tool *can* write,
+even though its default does not.
+
+## angular_generate
+
+Runs the analyzed project's **own** Angular CLI, so the generated code follows
+that project's schematics — custom ones included — and its `angular.json`
+defaults, rather than something this server invented.
+
+| Input | Type | Notes |
+|---|---|---|
+| `schematic` | enum | `component`, `directive`, `pipe`, `service`, `guard`, `interceptor`, `resolver`, `module`, `class`, `interface`, `enum`. |
+| `name` | string | Name with optional path, e.g. `features/users/user-card`. |
+| `options` | {flag, value}[]? | Each already split, so neither can smuggle the other. |
+| `dry_run` | boolean? | Defaults to true. |
+
+```
+angular_generate { schematic: "component", name: "features/reports/report-list" }
+
+dryRun: true | exit: 0
+CREATE src/app/features/reports/report-list/report-list.component.ts
+CREATE src/app/features/reports/report-list/report-list.component.html
+CREATE src/app/features/reports/report-list/report-list.component.css
+CREATE src/app/features/reports/report-list/report-list.component.spec.ts
+```
+
+The CLI is located inside the project and spawned with its arguments as an
+array — never through a shell, so a component name can never become a command —
+and every run is bounded by a timeout. A name that could be read as a flag or as
+shell syntax is refused by name:
+
+```
+angular_generate { schematic: "component", name: "a; rm -rf /" }
+→ Invalid name "a; rm -rf /". Use letters, digits, dots, dashes, underscores and slashes.
+```
+
+A dry run passes the CLI's own `--dry-run`, so nothing reaches disk because the
+CLI itself did not write it.
+
+## angular_add_route
+
+Adds a route to a routing array, written the way that array already writes its
+routes. Use `angular_get_route_tree` first to find the file and array you mean.
+
+| Input | Type | Notes |
+|---|---|---|
+| `file`, `array_name` | string | Where the routes live, e.g. `src/app/app.routes.ts` and `routes`. |
+| `path`, `component`, `component_path` | string | The new entry. |
+| `loading` | enum? | Override the array's dominant style. Omit to follow the neighbours. |
+
+```
+angular_add_route {
+  file: "src/app/app.routes.ts", array_name: "routes", path: "reports",
+  component: "ReportListComponent", component_path: "./features/reports/report-list.component"
+}
+
+dryRun: true | loading: loadComponent | why: 2 of 2 routes load lazily
+
+--- a/src/app/app.routes.ts
++++ b/src/app/app.routes.ts
+@@ -11,5 +11,10 @@
+     loadChildren: () => import('./features/orders/orders.routes').then((m) => m.ORDERS_ROUTES),
+   },
++  {
++    path: 'reports',
++    loadComponent: () =>
++      import('./features/reports/report-list.component').then((m) => m.ReportListComponent),
++  },
+ ];
+```
+
+The entry is **appended**, never inserted higher up: Angular matches routes in
+order, and silently moving someone's catch-all is not a bounded mutation. An
+empty or evenly split array reports `loadingConfidence: "unknown"` — a default
+was used, not a pattern detected.
+
+## angular_add_dependency
+
+Injects a dependency into a class, in whichever style that file already uses,
+adding the import when one is needed.
+
+| Input | Type | Notes |
+|---|---|---|
+| `ref` | string | The class to inject into. |
+| `dependency` | string | Type to inject, e.g. `OrderService`. |
+| `property_name` | string? | Defaults to the type name, lower-camel-cased. |
+| `import_from` | string? | Module specifier, when the file does not import it yet. |
+
+```
+angular_add_dependency { ref: "UserListComponent", dependency: "OrderService",
+                         import_from: "../../../core/services/order.service" }
+
+style: inject | confidence: certain
+why: the class already uses inject() (1 inject call(s), 0 constructor parameter(s))
+
++import { OrderService } from '../../../core/services/order.service';
+...
+ export class UserListComponent {
++  private readonly orderService = inject(OrderService);
++
+   private readonly userService = inject(UserService);
+```
+
+The style is read from the class itself (`certain`), falling back to the
+project's dominant style (`inferred`) and then to `inject()` (`unknown`) — and
+which of the three happened is always reported. Writing `inject()` into a
+codebase of constructor parameters is the hand-fixing this phase is built to
+avoid.
+
+Edits are text splices, not re-printed ASTs, so the diff shows the line that
+changed rather than a reformatted file.
 
 ---
 
