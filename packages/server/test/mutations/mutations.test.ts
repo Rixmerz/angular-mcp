@@ -26,6 +26,7 @@ import { diffStat, unifiedDiff } from '../../src/mutations/diff.js';
 import { ALLOWED_SCHEMATICS, GenerateError, parseGeneratedFiles, resolveProjectCli, validateGenerateInput } from '../../src/mutations/generate.js';
 import { detectInjectionStyle } from '../../src/mutations/style.js';
 import { InvalidInputError } from '../../src/tools/index.js';
+import { addDependencyWithLazyProjectCounts } from '../../src/tools/mutations.js';
 
 describe('unifiedDiff', () => {
   it('returns nothing when the two sides are identical', () => {
@@ -524,5 +525,48 @@ describe('mutations produce syntactically valid TypeScript', () => {
 
     expect(syntaxErrorsIn(result.after)).toEqual([]);
     expect(result.after).toContain('private readonly userService: UserService');
+  });
+});
+
+describe('project counts are only read when the file cannot answer (review finding)', () => {
+  const request = {
+    typescript,
+    filePath: 'src/a.ts',
+    className: 'A',
+    dependencyType: 'UserService',
+  } as const;
+
+  it('does not read the rest of the project when the class already shows a style', async () => {
+    let loads = 0;
+    const load = async () => {
+      loads += 1;
+      return { injectCalls: 0, constructorParameters: 0 };
+    };
+
+    await addDependencyWithLazyProjectCounts(
+      { ...request, sourceText: 'export class A {\n  private readonly x = inject(XService);\n}\n' },
+      load,
+    );
+
+    // Reading every component and service in the project is expensive and,
+    // here, pointless: the class itself settled the style.
+    expect(loads).toBe(0);
+  });
+
+  it('reads them exactly once when the class shows nothing', async () => {
+    let loads = 0;
+    const load = async () => {
+      loads += 1;
+      return { injectCalls: 0, constructorParameters: 7 };
+    };
+
+    const result = await addDependencyWithLazyProjectCounts(
+      { ...request, sourceText: 'export class A {\n  title = 1;\n}\n' },
+      load,
+    );
+
+    expect(loads).toBe(1);
+    expect(result.style.value).toBe('constructor');
+    expect(result.style.confidence).toBe('inferred');
   });
 });
