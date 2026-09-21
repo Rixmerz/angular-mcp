@@ -166,6 +166,7 @@ project. See [`docs/RULES.md`](docs/RULES.md) for the full schema.
 - [`docs/RULES.md`](docs/RULES.md) — the rules file schema and the importers.
 - [`docs/PLAN.md`](docs/PLAN.md) — the design: principles, phases, risks and their mitigations.
 - [`evals/evaluation.xml`](evals/evaluation.xml) — ten questions about the fixtures, each answerable with the read-only tools and verified against the running server.
+- [`docs/BENCHMARK.md`](docs/BENCHMARK.md) — what section 10 asks for, what was measured, and the target that is not met.
 
 ## Development
 
@@ -190,12 +191,16 @@ and ten query tools, the rules engine and its three, the pattern and contract
 tools, the MCP server with its resources and prompt, and the three bounded
 mutations.
 
-One thing the plan asks for is **not** done, and it gates Phase 5 on paper: the
-section 10 A/B benchmark, which measures token and turn reduction against an
-agent working without the server. Of the metrics it lists, only graph precision
-(100% on both fixtures) and incremental indexing are measured today. The
-mutations are built, tested and safe by default, but the numbers that were
-supposed to justify opening that phase do not exist yet.
+The section 10 benchmark is **partly** done, and one of its targets is **not
+met**. Measured: full files read per task −100%, context per task −45% against
+a −50% target, incremental indexing 0.9 s, graph precision 100%. Not measured:
+turns to first correct edit and task success rate, which need an agent driven
+three times on each side and cannot be derived from the repository.
+
+[`docs/BENCHMARK.md`](docs/BENCHMARK.md) has the per-task table, why the two
+weakest tasks score as they do, and what someone would have to run to finish
+it. The mutations of Phase 5 are built, tested and safe by default, but the
+evidence the plan wanted before opening that phase is partial.
 
 ## License
 
