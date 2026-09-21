@@ -38,7 +38,12 @@ It reports facts, never judgement. Every fact carries where it came from and how
 sure the server is of it: `certain` when it was read from the AST, `inferred`
 when a heuristic derived it, `unknown` when it could not be determined. A URL
 built at runtime comes back as `unknown` with the original expression, not as a
-plausible-looking guess. The tools are read-only; nothing writes to your project.
+plausible-looking guess.
+
+Sixteen of the nineteen tools are read-only. The three that can write —
+`angular_generate`, `angular_add_route` and `angular_add_dependency` — all
+default to a dry run that returns a unified diff and touches nothing, and each
+follows the conventions your code already uses rather than imposing its own.
 
 ## Install
 
@@ -122,6 +127,10 @@ receives is validated to resolve inside it.
 
   angular_check_rules { files: ["src/app/features/users/user-list/user-list.component.ts"] }
     → no violations
+
+  angular_add_dependency { ref: "UserListComponent", dependency: "OrderService" }
+    → dry run: a diff adding `private readonly orderService = inject(OrderService);`
+      inject(), not a constructor parameter, because that is what the class already uses
 ```
 
 The agent now knows the pattern the codebase already uses for pagination, what
@@ -156,6 +165,7 @@ project. See [`docs/RULES.md`](docs/RULES.md) for the full schema.
 - [`docs/TOOLS.md`](docs/TOOLS.md) — every tool, with real output from the fixtures.
 - [`docs/RULES.md`](docs/RULES.md) — the rules file schema and the importers.
 - [`docs/PLAN.md`](docs/PLAN.md) — the design: principles, phases, risks and their mitigations.
+- [`evals/evaluation.xml`](evals/evaluation.xml) — ten questions about the fixtures, each answerable with the read-only tools and verified against the running server.
 
 ## Development
 
@@ -175,9 +185,17 @@ integration test measures the indexer against it rather than against itself.
 
 ## Status
 
-Phases 1 to 4 of [`docs/PLAN.md`](docs/PLAN.md) are implemented: the indexer, the
-ten query tools, the rules engine with its three tools, and the MCP server with
-its resources and prompt. Phase 5 (bounded mutations) is deliberately not built.
+All five phases of [`docs/PLAN.md`](docs/PLAN.md) are implemented: the indexer
+and ten query tools, the rules engine and its three, the pattern and contract
+tools, the MCP server with its resources and prompt, and the three bounded
+mutations.
+
+One thing the plan asks for is **not** done, and it gates Phase 5 on paper: the
+section 10 A/B benchmark, which measures token and turn reduction against an
+agent working without the server. Of the metrics it lists, only graph precision
+(100% on both fixtures) and incremental indexing are measured today. The
+mutations are built, tested and safe by default, but the numbers that were
+supposed to justify opening that phase do not exist yet.
 
 ## License
 
