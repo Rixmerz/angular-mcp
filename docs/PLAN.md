@@ -518,7 +518,7 @@ angular-mcp/
 
 | Decision | Options | When it gets decided |
 |----------|----------|------------------|
-| Graph persistence | One JSON file per source file vs SQLite | End of Phase 1, with real performance data. |
+| ~~Graph persistence~~ | ~~One JSON file per source file vs SQLite~~ | **Decided: JSON kept.** See [ADR 4](adr/0004-graph-persistence.md) — the benchmark shows extraction is not the bottleneck, so the store is not where the time goes. |
 | Nx support without `angular.json` | Basic in v1 vs full in v2 | Based on demand after 0.1.0. |
 | Following the RxJS flow (`pipe`, `switchMap`) to connect observables with HTTP | Not in v1; possible in v2 | If the benchmark shows the agent needs it. |
 | `TemplateTypeChecker` for exact types in templates | Excluded in v1 | v2, only if R16 materializes. |
