@@ -167,6 +167,7 @@ project. See [`docs/RULES.md`](docs/RULES.md) for the full schema.
 - [`docs/PLAN.md`](docs/PLAN.md) — the design: principles, phases, risks and their mitigations.
 - [`evals/evaluation.xml`](evals/evaluation.xml) — ten questions about the fixtures, each answerable with the read-only tools and verified against the running server.
 - [`docs/BENCHMARK.md`](docs/BENCHMARK.md) — what section 10 asks for, what was measured, and the target that is not met.
+- [`docs/adr/`](docs/adr/) — the decisions with the most consequence for this codebase, each with the evidence that settled it.
 
 ## Development
 
