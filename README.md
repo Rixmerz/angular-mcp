@@ -177,13 +177,25 @@ pnpm -C packages/server typecheck
 pnpm -C packages/server test
 ```
 
-`fixtures/standalone-app` and `fixtures/ngmodule-app` are real Angular
+`fixtures/standalone-app` and `fixtures/ngmodule-app` are real Angular 18
 applications built to cover the cases that matter: standalone and NgModule
 declarations, every reactive primitive, all five modern control-flow forms,
 functional and class guards, resolvers and interceptors, lazy routes, barrels,
 three different URL shapes, and one deliberately planted architecture violation.
 Each has an `expected-graph.json` written by hand from its source — the
 integration test measures the indexer against it rather than against itself.
+
+`fixtures/v20-app` is the second half of the version matrix: a minimal Angular
+20 install, holding only the packages the indexer resolves, so CI can install
+it in seconds. It is what actually exercises the behaviour that differs between
+majors — most sharply the `standalone` default, which flipped in Angular 19 and
+which the server reads from the analyzed project rather than assuming.
+
+```bash
+npm --prefix fixtures/v20-app install   # needed once, for the matrix tests
+```
+
+Without it those tests skip themselves rather than fail confusingly.
 
 ## Status
 
