@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "angular": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.bundle.mjs"],
+      "env": {
+        "ANGULAR_MCP_ROOT": "${ANGULAR_MCP_ROOT:-}"
+      }
+    }
+  }
+}

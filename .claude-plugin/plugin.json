@@ -1,0 +1,19 @@
+{
+  "name": "angular-mcp",
+  "version": "0.0.1",
+  "description": "The semantic graph of an Angular project — components, DI, signals, templates, routes, HTTP calls, interceptors and specs — as MCP query tools, read with the project's own TypeScript and Angular compiler.",
+  "author": {
+    "name": "Juan Pablo Diaz",
+    "email": "juanpablo516@gmail.com"
+  },
+  "homepage": "https://github.com/Rixmerz/angular-mcp",
+  "repository": "https://github.com/Rixmerz/angular-mcp",
+  "keywords": [
+    "angular",
+    "mcp",
+    "code-intelligence",
+    "impact-analysis",
+    "architecture-rules"
+  ],
+  "mcpServers": "./.mcp.json"
+}

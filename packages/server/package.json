@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:plugin": "tsup --config tsup.plugin.config.ts",
     "dev": "tsup --watch",
     "test": "vitest run",
     "lint": "eslint .",

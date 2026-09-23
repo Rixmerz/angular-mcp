@@ -51,12 +51,32 @@ Requires Node 20 or newer. The server reads the analyzed project's **own**
 `typescript` and `@angular/compiler`, so it follows whatever Angular version that
 project is on rather than pinning one.
 
+### Claude Code plugin
+
+```
+/plugin marketplace add Rixmerz/claude-plugins
+/plugin install angular-mcp@rixmerz
+```
+
+Nothing to build: the plugin runs `mcp/server.bundle.mjs`, the server with its
+dependencies inlined, committed to this repository. It analyzes the directory
+Claude Code was started in; set `ANGULAR_MCP_ROOT` to point it elsewhere.
+
+After changing anything under `packages/server/src`, rebuild the bundle and
+commit it with the change — CI fails when the two disagree:
+
+```bash
+pnpm -C packages/server build:plugin
+```
+
+### From source
+
 ```bash
 pnpm install
 pnpm -C packages/server build
 ```
 
-### Claude Code
+### Claude Code, without the plugin
 
 ```bash
 claude mcp add angular -- node /absolute/path/to/angular-mcp/packages/server/dist/index.js /absolute/path/to/your-angular-app
