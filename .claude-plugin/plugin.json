@@ -15,5 +15,5 @@
     "impact-analysis",
     "architecture-rules"
   ],
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.claude-plugin/mcp.json"
 }
